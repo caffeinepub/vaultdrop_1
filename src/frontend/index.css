@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   VAULTDROP — Design System
+   Theme: Deep Dark / High-Contrast Emerald
+   Fonts: Cabinet Grotesk (display), Satoshi (body), Geist Mono (mono)
+   ============================================================ */
+
+/* --- Font faces --- */
+@font-face {
+  font-family: "Cabinet Grotesk";
+  src: url("/assets/fonts/CabinetGrotesk-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/assets/fonts/Satoshi-Variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/assets/fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* === Core palette — dark mode only === */
+    /* Backgrounds */
+    --background: 0.1 0.005 160;
+    --foreground: 0.95 0.01 160;
+    --card: 0.14 0.008 160;
+    --card-foreground: 0.95 0.01 160;
+    --popover: 0.16 0.008 160;
+    --popover-foreground: 0.95 0.01 160;
+
+    /* Brand: Emerald green */
+    --primary: 0.72 0.17 160;
+    --primary-foreground: 0.08 0.01 160;
+
+    /* Neutral secondary */
+    --secondary: 0.2 0.01 160;
+    --secondary-foreground: 0.9 0.01 160;
+
+    /* Muted */
+    --muted: 0.18 0.008 160;
+    --muted-foreground: 0.6 0.015 160;
+
+    /* Accent: Bright cyan-emerald */
+    --accent: 0.22 0.015 160;
+    --accent-foreground: 0.9 0.015 160;
+
+    /* Status */
+    --destructive: 0.6 0.22 25;
+    --destructive-foreground: 0.98 0 0;
+    --success: 0.72 0.17 160;
+    --success-foreground: 0.08 0.01 160;
+    --warning: 0.82 0.18 75;
+    --warning-foreground: 0.12 0.01 75;
+
+    /* Structure */
+    --border: 0.25 0.01 160;
+    --input: 0.22 0.01 160;
+    --ring: 0.72 0.17 160;
+
+    /* Charts */
+    --chart-1: 0.72 0.17 160;
+    --chart-2: 0.65 0.15 200;
+    --chart-3: 0.6 0.14 260;
+    --chart-4: 0.82 0.18 75;
+    --chart-5: 0.6 0.22 25;
+
+    /* Sidebar — user dashboard (clean, consumer) */
+    --sidebar: 0.12 0.007 160;
+    --sidebar-foreground: 0.9 0.01 160;
+    --sidebar-primary: 0.72 0.17 160;
+    --sidebar-primary-foreground: 0.08 0.01 160;
+    --sidebar-accent: 0.18 0.01 160;
+    --sidebar-accent-foreground: 0.85 0.01 160;
+    --sidebar-border: 0.22 0.01 160;
+    --sidebar-ring: 0.72 0.17 160;
+
+    /* Admin sidebar — distinct amber accent */
+    --admin-sidebar: 0.1 0.008 50;
+    --admin-sidebar-foreground: 0.9 0.01 50;
+    --admin-sidebar-primary: 0.78 0.19 65;
+    --admin-sidebar-primary-foreground: 0.1 0.01 65;
+    --admin-sidebar-accent: 0.15 0.01 50;
+    --admin-sidebar-accent-foreground: 0.85 0.01 50;
+    --admin-sidebar-border: 0.22 0.015 50;
+
+    /* Glow colors for decorative use */
+    --glow-primary: 0.72 0.17 160;
+    --glow-admin: 0.78 0.19 65;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+/* ============================================================
+   Utility classes
+   ============================================================ */
+
+.gradient-hero {
+  background: radial-gradient(
+    ellipse 80% 60% at 50% -10%,
+    oklch(0.72 0.17 160 / 0.15) 0%,
+    transparent 70%
+  ),
+  radial-gradient(
+    ellipse 50% 40% at 80% 80%,
+    oklch(0.65 0.15 200 / 0.08) 0%,
+    transparent 60%
+  ),
+  oklch(0.1 0.005 160);
+}
+
+.gradient-admin-hero {
+  background: radial-gradient(
+    ellipse 80% 60% at 50% -10%,
+    oklch(0.78 0.19 65 / 0.12) 0%,
+    transparent 70%
+  ),
+  oklch(0.1 0.008 50);
+}
+
+.glass-card {
+  background: oklch(0.14 0.008 160 / 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid oklch(0.72 0.17 160 / 0.15);
+}
+
+.glass-card-admin {
+  background: oklch(0.14 0.008 50 / 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid oklch(0.78 0.19 65 / 0.15);
+}
+
+.glow-text {
+  text-shadow: 0 0 30px oklch(0.72 0.17 160 / 0.4);
+}
+
+.glow-text-admin {
+  text-shadow: 0 0 30px oklch(0.78 0.19 65 / 0.4);
+}
+
+/* Noise texture overlay */
+.noise-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Dot-grid pattern — used in hero */
+.dot-grid {
+  background-image: radial-gradient(
+    circle,
+    oklch(0.72 0.17 160 / 0.12) 1px,
+    transparent 1px
+  );
+  background-size: 28px 28px;
+}
+
+/* Card shimmer on hover */
+@keyframes card-shimmer {
+  0% { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(250%) skewX(-15deg); }
+}
+
+.card-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(0.72 0.17 160 / 0.06) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%) skewX(-15deg);
+  pointer-events: none;
+}
+
+.card-shimmer:hover::after {
+  animation: card-shimmer 0.65s ease-out forwards;
+}
+
+/* KPI delta badge */
+.delta-up {
+  color: oklch(0.72 0.17 160);
+  background: oklch(0.72 0.17 160 / 0.1);
+}
+.delta-down {
+  color: oklch(0.6 0.22 25);
+  background: oklch(0.6 0.22 25 / 0.1);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: oklch(0.12 0.005 160);
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.3 0.01 160);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.72 0.17 160 / 0.5);
+}
