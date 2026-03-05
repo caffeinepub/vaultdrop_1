@@ -33,12 +33,23 @@ export const ShoppingItem = IDL.Record({
   'priceInCents' : IDL.Nat,
   'productDescription' : IDL.Text,
 });
+export const Timestamp = IDL.Int;
+export const DiscountCode = IDL.Record({
+  'id' : IDL.Text,
+  'expiresAt' : IDL.Opt(Timestamp),
+  'code' : IDL.Text,
+  'createdAt' : Timestamp,
+  'usageCount' : IDL.Nat,
+  'discountPercent' : IDL.Nat,
+  'isActive' : IDL.Bool,
+  'usageLimit' : IDL.Opt(IDL.Nat),
+  'updatedAt' : Timestamp,
+});
 export const ListingStatus = IDL.Variant({
   'upcoming' : IDL.Null,
   'published' : IDL.Null,
   'draft' : IDL.Null,
 });
-export const Timestamp = IDL.Int;
 export const Listing = IDL.Record({
   'id' : ListingId,
   'status' : ListingStatus,
@@ -59,9 +70,11 @@ export const OrderStatus = IDL.Variant({
 export const Order = IDL.Record({
   'id' : OrderId,
   'status' : OrderStatus,
+  'usedDiscountCode' : IDL.Opt(IDL.Text),
   'listingId' : ListingId,
   'userId' : UserId,
   'createdAt' : Timestamp,
+  'discountPercent' : IDL.Opt(IDL.Nat),
   'updatedAt' : Timestamp,
   'amount' : IDL.Nat,
   'paymentIntentId' : IDL.Opt(IDL.Text),
@@ -117,6 +130,25 @@ export const Analytics = IDL.Record({
   'activeSubscribers' : IDL.Nat,
   'totalRevenue' : IDL.Nat,
   'monthlyRevenue' : IDL.Nat,
+});
+export const NotificationType = IDL.Variant({
+  'subscriptionExpired' : IDL.Null,
+  'newListing' : IDL.Null,
+  'wishlistPriceDrop' : IDL.Null,
+  'subscriptionRenewalWarning' : IDL.Null,
+  'earlyAccessListing' : IDL.Null,
+  'adminAnnouncement' : IDL.Null,
+  'purchaseCompleted' : IDL.Null,
+});
+export const Notification = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'userId' : UserId,
+  'notificationType' : NotificationType,
+  'createdAt' : Timestamp,
+  'isRead' : IDL.Bool,
+  'relatedEntityId' : IDL.Opt(IDL.Text),
+  'message' : IDL.Text,
 });
 export const WishlistSnapshot = IDL.Record({
   'userId' : UserId,
@@ -185,9 +217,15 @@ export const idlService = IDL.Service({
   'addToWishlist' : IDL.Func([ListingId], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'banUser' : IDL.Func([UserId], [], []),
+  'clearReadNotifications' : IDL.Func([], [], []),
   'createCheckoutSession' : IDL.Func(
       [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
       [IDL.Text],
+      [],
+    ),
+  'createDiscountCode' : IDL.Func(
+      [IDL.Text, IDL.Nat, IDL.Opt(Timestamp), IDL.Opt(IDL.Nat)],
+      [DiscountCode],
       [],
     ),
   'createListing' : IDL.Func(
@@ -203,11 +241,12 @@ export const idlService = IDL.Service({
       [],
     ),
   'createOrder' : IDL.Func(
-      [ListingId, IDL.Nat, IDL.Opt(IDL.Text)],
+      [ListingId, IDL.Nat, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
       [Order],
       [],
     ),
   'createSubscription' : IDL.Func([IDL.Text, Timestamp], [Subscription], []),
+  'deactivateDiscountCode' : IDL.Func([IDL.Text], [], []),
   'deleteListing' : IDL.Func([ListingId], [], []),
   'deleteReview' : IDL.Func([ReviewId], [], []),
   'getAllOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
@@ -216,9 +255,11 @@ export const idlService = IDL.Service({
   'getAllUsers' : IDL.Func([], [IDL.Vec(UserProfile)], ['query']),
   'getAnalytics' : IDL.Func([], [Analytics], ['query']),
   'getApprovedReviews' : IDL.Func([ListingId], [IDL.Vec(Review)], ['query']),
+  'getCallerNotifications' : IDL.Func([], [IDL.Vec(Notification)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCallerWishlist' : IDL.Func([], [IDL.Opt(WishlistSnapshot)], ['query']),
+  'getDiscountCodes' : IDL.Func([], [IDL.Vec(DiscountCode)], ['query']),
   'getDownloadFileUrl' : IDL.Func([ListingId], [IDL.Opt(IDL.Text)], ['query']),
   'getListings' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
   'getPublicWishlist' : IDL.Func(
@@ -227,6 +268,7 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+  'getUnreadNotificationCount' : IDL.Func([], [IDL.Nat], ['query']),
   'getUserOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
@@ -236,10 +278,13 @@ export const idlService = IDL.Service({
   'getUserSubscriptions' : IDL.Func([], [IDL.Vec(Subscription)], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
+  'markAllNotificationsRead' : IDL.Func([], [], []),
+  'markNotificationRead' : IDL.Func([IDL.Text], [], []),
   'markOrderAsRefunded' : IDL.Func([OrderId], [], []),
   'moderateReview' : IDL.Func([ReviewId, ReviewStatus], [], []),
   'removeFromWishlist' : IDL.Func([ListingId], [], []),
   'saveCallerUserProfile' : IDL.Func([IDL.Text, IDL.Text], [UserProfile], []),
+  'sendAdminAnnouncement' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
   'setWishlistVisibility' : IDL.Func([IDL.Bool], [], []),
   'submitReview' : IDL.Func([ListingId, IDL.Nat, IDL.Text], [Review], []),
@@ -267,6 +312,11 @@ export const idlService = IDL.Service({
       [SubscriptionId, SubscriptionStatus],
       [],
       [],
+    ),
+  'validateDiscountCode' : IDL.Func(
+      [IDL.Text],
+      [IDL.Variant({ 'ok' : DiscountCode, 'error' : IDL.Text })],
+      ['query'],
     ),
 });
 
@@ -298,12 +348,23 @@ export const idlFactory = ({ IDL }) => {
     'priceInCents' : IDL.Nat,
     'productDescription' : IDL.Text,
   });
+  const Timestamp = IDL.Int;
+  const DiscountCode = IDL.Record({
+    'id' : IDL.Text,
+    'expiresAt' : IDL.Opt(Timestamp),
+    'code' : IDL.Text,
+    'createdAt' : Timestamp,
+    'usageCount' : IDL.Nat,
+    'discountPercent' : IDL.Nat,
+    'isActive' : IDL.Bool,
+    'usageLimit' : IDL.Opt(IDL.Nat),
+    'updatedAt' : Timestamp,
+  });
   const ListingStatus = IDL.Variant({
     'upcoming' : IDL.Null,
     'published' : IDL.Null,
     'draft' : IDL.Null,
   });
-  const Timestamp = IDL.Int;
   const Listing = IDL.Record({
     'id' : ListingId,
     'status' : ListingStatus,
@@ -324,9 +385,11 @@ export const idlFactory = ({ IDL }) => {
   const Order = IDL.Record({
     'id' : OrderId,
     'status' : OrderStatus,
+    'usedDiscountCode' : IDL.Opt(IDL.Text),
     'listingId' : ListingId,
     'userId' : UserId,
     'createdAt' : Timestamp,
+    'discountPercent' : IDL.Opt(IDL.Nat),
     'updatedAt' : Timestamp,
     'amount' : IDL.Nat,
     'paymentIntentId' : IDL.Opt(IDL.Text),
@@ -382,6 +445,25 @@ export const idlFactory = ({ IDL }) => {
     'activeSubscribers' : IDL.Nat,
     'totalRevenue' : IDL.Nat,
     'monthlyRevenue' : IDL.Nat,
+  });
+  const NotificationType = IDL.Variant({
+    'subscriptionExpired' : IDL.Null,
+    'newListing' : IDL.Null,
+    'wishlistPriceDrop' : IDL.Null,
+    'subscriptionRenewalWarning' : IDL.Null,
+    'earlyAccessListing' : IDL.Null,
+    'adminAnnouncement' : IDL.Null,
+    'purchaseCompleted' : IDL.Null,
+  });
+  const Notification = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'userId' : UserId,
+    'notificationType' : NotificationType,
+    'createdAt' : Timestamp,
+    'isRead' : IDL.Bool,
+    'relatedEntityId' : IDL.Opt(IDL.Text),
+    'message' : IDL.Text,
   });
   const WishlistSnapshot = IDL.Record({
     'userId' : UserId,
@@ -447,9 +529,15 @@ export const idlFactory = ({ IDL }) => {
     'addToWishlist' : IDL.Func([ListingId], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'banUser' : IDL.Func([UserId], [], []),
+    'clearReadNotifications' : IDL.Func([], [], []),
     'createCheckoutSession' : IDL.Func(
         [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
         [IDL.Text],
+        [],
+      ),
+    'createDiscountCode' : IDL.Func(
+        [IDL.Text, IDL.Nat, IDL.Opt(Timestamp), IDL.Opt(IDL.Nat)],
+        [DiscountCode],
         [],
       ),
     'createListing' : IDL.Func(
@@ -465,11 +553,12 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'createOrder' : IDL.Func(
-        [ListingId, IDL.Nat, IDL.Opt(IDL.Text)],
+        [ListingId, IDL.Nat, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
         [Order],
         [],
       ),
     'createSubscription' : IDL.Func([IDL.Text, Timestamp], [Subscription], []),
+    'deactivateDiscountCode' : IDL.Func([IDL.Text], [], []),
     'deleteListing' : IDL.Func([ListingId], [], []),
     'deleteReview' : IDL.Func([ReviewId], [], []),
     'getAllOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
@@ -478,9 +567,11 @@ export const idlFactory = ({ IDL }) => {
     'getAllUsers' : IDL.Func([], [IDL.Vec(UserProfile)], ['query']),
     'getAnalytics' : IDL.Func([], [Analytics], ['query']),
     'getApprovedReviews' : IDL.Func([ListingId], [IDL.Vec(Review)], ['query']),
+    'getCallerNotifications' : IDL.Func([], [IDL.Vec(Notification)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCallerWishlist' : IDL.Func([], [IDL.Opt(WishlistSnapshot)], ['query']),
+    'getDiscountCodes' : IDL.Func([], [IDL.Vec(DiscountCode)], ['query']),
     'getDownloadFileUrl' : IDL.Func(
         [ListingId],
         [IDL.Opt(IDL.Text)],
@@ -493,6 +584,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+    'getUnreadNotificationCount' : IDL.Func([], [IDL.Nat], ['query']),
     'getUserOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
@@ -502,10 +594,13 @@ export const idlFactory = ({ IDL }) => {
     'getUserSubscriptions' : IDL.Func([], [IDL.Vec(Subscription)], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
+    'markAllNotificationsRead' : IDL.Func([], [], []),
+    'markNotificationRead' : IDL.Func([IDL.Text], [], []),
     'markOrderAsRefunded' : IDL.Func([OrderId], [], []),
     'moderateReview' : IDL.Func([ReviewId, ReviewStatus], [], []),
     'removeFromWishlist' : IDL.Func([ListingId], [], []),
     'saveCallerUserProfile' : IDL.Func([IDL.Text, IDL.Text], [UserProfile], []),
+    'sendAdminAnnouncement' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
     'setWishlistVisibility' : IDL.Func([IDL.Bool], [], []),
     'submitReview' : IDL.Func([ListingId, IDL.Nat, IDL.Text], [Review], []),
@@ -533,6 +628,11 @@ export const idlFactory = ({ IDL }) => {
         [SubscriptionId, SubscriptionStatus],
         [],
         [],
+      ),
+    'validateDiscountCode' : IDL.Func(
+        [IDL.Text],
+        [IDL.Variant({ 'ok' : DiscountCode, 'error' : IDL.Text })],
+        ['query'],
       ),
   });
 };

@@ -14,11 +14,17 @@ import {
   ShoppingCart,
   Star,
   Tag,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { type Listing, ListingStatus, OrderStatus } from "../backend";
+import {
+  type DiscountCode,
+  type Listing,
+  ListingStatus,
+  OrderStatus,
+} from "../backend";
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
 import { SAMPLE_LISTINGS } from "../data/sampleListings";
@@ -32,6 +38,7 @@ import {
   useGetUserOrders,
   useSubmitReview,
   useUpdateOrderStatus,
+  useValidateDiscountCode,
 } from "../hooks/useQueries";
 
 function formatPrice(cents: bigint): string {
@@ -355,6 +362,14 @@ export default function ListingDetailPage() {
   const getSessionStatus = useGetStripeSessionStatus();
   const createOrder = useCreateOrder();
   const updateOrderStatus = useUpdateOrderStatus();
+  const validateDiscount = useValidateDiscountCode();
+
+  // Discount code state
+  const [discountInput, setDiscountInput] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<DiscountCode | null>(
+    null,
+  );
+  const [discountError, setDiscountError] = useState<string | null>(null);
 
   // Find listing
   const listing = useMemo((): Listing | null => {
@@ -398,6 +413,7 @@ export default function ListingDetailPage() {
             listingId: listing.id,
             amount: listing.price,
             paymentIntentId,
+            discountCode: null,
           });
           await updateOrderStatus.mutateAsync({
             orderId: order.id,
@@ -414,6 +430,38 @@ export default function ListingDetailPage() {
       }
     })();
   }, [sessionId, listing, getSessionStatus, createOrder, updateOrderStatus]);
+
+  const handleApplyDiscount = async () => {
+    if (!discountInput.trim()) return;
+    setDiscountError(null);
+    try {
+      const result = await validateDiscount.mutateAsync(
+        discountInput.trim().toUpperCase(),
+      );
+      if (result.__kind__ === "ok") {
+        setAppliedDiscount(result.ok);
+        setDiscountError(null);
+      } else {
+        setAppliedDiscount(null);
+        setDiscountError(result.error);
+      }
+    } catch {
+      setDiscountError("Failed to validate code. Please try again.");
+    }
+  };
+
+  const handleRemoveDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountInput("");
+    setDiscountError(null);
+  };
+
+  const discountedPrice =
+    appliedDiscount && listing
+      ? listing.price - (listing.price * appliedDiscount.discountPercent) / 100n
+      : null;
+
+  const finalPrice = discountedPrice ?? listing?.price ?? 0n;
 
   const handlePurchase = async () => {
     if (!isAuthenticated) {
@@ -432,7 +480,7 @@ export default function ListingDetailPage() {
           {
             productName: listing.title,
             productDescription: listing.description.slice(0, 200),
-            priceInCents: listing.price,
+            priceInCents: finalPrice,
             quantity: 1n,
             currency: "usd",
           },
@@ -548,13 +596,118 @@ export default function ListingDetailPage() {
 
                   {/* Price */}
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-display font-black text-primary glow-text">
-                      {formatPrice(listing.price)}
-                    </span>
-                    <span className="text-sm text-muted-foreground font-body">
-                      one-time
-                    </span>
+                    {appliedDiscount ? (
+                      <>
+                        <span className="text-4xl font-display font-black text-primary glow-text">
+                          {formatPrice(finalPrice)}
+                        </span>
+                        <span className="text-xl font-display font-semibold text-muted-foreground line-through">
+                          {formatPrice(listing.price)}
+                        </span>
+                        <span className="text-sm font-display font-bold text-green-500">
+                          -{Number(appliedDiscount.discountPercent)}% off
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-display font-black text-primary glow-text">
+                          {formatPrice(listing.price)}
+                        </span>
+                        <span className="text-sm text-muted-foreground font-body">
+                          one-time
+                        </span>
+                      </>
+                    )}
                   </div>
+
+                  {/* Discount code input */}
+                  {!justPurchased && !isUpcoming && (
+                    <div className="space-y-2">
+                      {appliedDiscount ? (
+                        <div
+                          data-ocid="checkout.discount_success_state"
+                          className="flex items-center justify-between p-3 rounded-lg border"
+                          style={{
+                            background: "oklch(0.72 0.17 160 / 0.08)",
+                            borderColor: "oklch(0.72 0.17 160 / 0.3)",
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Tag
+                              className="h-3.5 w-3.5"
+                              style={{ color: "oklch(0.72 0.17 160)" }}
+                            />
+                            <span
+                              className="text-sm font-display font-bold"
+                              style={{ color: "oklch(0.72 0.17 160)" }}
+                            >
+                              {appliedDiscount.code}
+                            </span>
+                            <span
+                              className="text-xs font-body"
+                              style={{ color: "oklch(0.72 0.17 160)" }}
+                            >
+                              {Number(appliedDiscount.discountPercent)}% off
+                              applied
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemoveDiscount}
+                            className="p-1 rounded hover:bg-muted/40 transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            data-ocid="checkout.discount_input"
+                            value={discountInput}
+                            onChange={(e) => {
+                              setDiscountInput(e.target.value.toUpperCase());
+                              setDiscountError(null);
+                            }}
+                            placeholder="Discount code"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                void handleApplyDiscount();
+                              }
+                            }}
+                            className="flex-1 px-3 py-2 rounded-lg text-sm font-mono bg-muted/30 border border-border/60 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/40 transition-colors uppercase tracking-wider"
+                          />
+                          <button
+                            type="button"
+                            data-ocid="checkout.apply_discount_button"
+                            onClick={() => void handleApplyDiscount()}
+                            disabled={
+                              validateDiscount.isPending ||
+                              !discountInput.trim()
+                            }
+                            className="px-4 py-2 rounded-lg text-sm font-display font-bold bg-primary/10 text-primary border border-primary/25 hover:bg-primary/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                          >
+                            {validateDiscount.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Tag className="h-3.5 w-3.5" />
+                            )}
+                            Apply
+                          </button>
+                        </div>
+                      )}
+                      {discountError && (
+                        <p
+                          data-ocid="checkout.discount_error_state"
+                          className="text-xs font-body text-destructive flex items-center gap-1.5"
+                        >
+                          <X className="h-3 w-3 shrink-0" />
+                          {discountError}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Purchase */}
                   {justPurchased ? (
@@ -599,7 +752,7 @@ export default function ListingDetailPage() {
                       ) : (
                         <>
                           <ShoppingCart className="mr-2 h-4 w-4" />
-                          Buy Now — {formatPrice(listing.price)}
+                          Buy Now — {formatPrice(finalPrice)}
                         </>
                       )}
                     </Button>

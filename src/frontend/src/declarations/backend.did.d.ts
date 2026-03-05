@@ -20,6 +20,17 @@ export interface Analytics {
 export type AppUserRole = { 'admin' : null } |
   { 'regular' : null } |
   { 'subscribed' : null };
+export interface DiscountCode {
+  'id' : string,
+  'expiresAt' : [] | [Timestamp],
+  'code' : string,
+  'createdAt' : Timestamp,
+  'usageCount' : bigint,
+  'discountPercent' : bigint,
+  'isActive' : boolean,
+  'usageLimit' : [] | [bigint],
+  'updatedAt' : Timestamp,
+}
 export interface Listing {
   'id' : ListingId,
   'status' : ListingStatus,
@@ -35,12 +46,31 @@ export type ListingId = string;
 export type ListingStatus = { 'upcoming' : null } |
   { 'published' : null } |
   { 'draft' : null };
+export interface Notification {
+  'id' : string,
+  'title' : string,
+  'userId' : UserId,
+  'notificationType' : NotificationType,
+  'createdAt' : Timestamp,
+  'isRead' : boolean,
+  'relatedEntityId' : [] | [string],
+  'message' : string,
+}
+export type NotificationType = { 'subscriptionExpired' : null } |
+  { 'newListing' : null } |
+  { 'wishlistPriceDrop' : null } |
+  { 'subscriptionRenewalWarning' : null } |
+  { 'earlyAccessListing' : null } |
+  { 'adminAnnouncement' : null } |
+  { 'purchaseCompleted' : null };
 export interface Order {
   'id' : OrderId,
   'status' : OrderStatus,
+  'usedDiscountCode' : [] | [string],
   'listingId' : ListingId,
   'userId' : UserId,
   'createdAt' : Timestamp,
+  'discountPercent' : [] | [bigint],
   'updatedAt' : Timestamp,
   'amount' : bigint,
   'paymentIntentId' : [] | [string],
@@ -157,16 +187,25 @@ export interface _SERVICE {
   'addToWishlist' : ActorMethod<[ListingId], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'banUser' : ActorMethod<[UserId], undefined>,
+  'clearReadNotifications' : ActorMethod<[], undefined>,
   'createCheckoutSession' : ActorMethod<
     [Array<ShoppingItem>, string, string],
     string
+  >,
+  'createDiscountCode' : ActorMethod<
+    [string, bigint, [] | [Timestamp], [] | [bigint]],
+    DiscountCode
   >,
   'createListing' : ActorMethod<
     [string, string, bigint, ListingStatus, [] | [string], [] | [string]],
     Listing
   >,
-  'createOrder' : ActorMethod<[ListingId, bigint, [] | [string]], Order>,
+  'createOrder' : ActorMethod<
+    [ListingId, bigint, [] | [string], [] | [string]],
+    Order
+  >,
   'createSubscription' : ActorMethod<[string, Timestamp], Subscription>,
+  'deactivateDiscountCode' : ActorMethod<[string], undefined>,
   'deleteListing' : ActorMethod<[ListingId], undefined>,
   'deleteReview' : ActorMethod<[ReviewId], undefined>,
   'getAllOrders' : ActorMethod<[], Array<Order>>,
@@ -175,22 +214,28 @@ export interface _SERVICE {
   'getAllUsers' : ActorMethod<[], Array<UserProfile>>,
   'getAnalytics' : ActorMethod<[], Analytics>,
   'getApprovedReviews' : ActorMethod<[ListingId], Array<Review>>,
+  'getCallerNotifications' : ActorMethod<[], Array<Notification>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCallerWishlist' : ActorMethod<[], [] | [WishlistSnapshot]>,
+  'getDiscountCodes' : ActorMethod<[], Array<DiscountCode>>,
   'getDownloadFileUrl' : ActorMethod<[ListingId], [] | [string]>,
   'getListings' : ActorMethod<[], Array<Listing>>,
   'getPublicWishlist' : ActorMethod<[UserId], [] | [WishlistSnapshot]>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
+  'getUnreadNotificationCount' : ActorMethod<[], bigint>,
   'getUserOrders' : ActorMethod<[], Array<Order>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getUserSubscriptions' : ActorMethod<[], Array<Subscription>>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
+  'markAllNotificationsRead' : ActorMethod<[], undefined>,
+  'markNotificationRead' : ActorMethod<[string], undefined>,
   'markOrderAsRefunded' : ActorMethod<[OrderId], undefined>,
   'moderateReview' : ActorMethod<[ReviewId, ReviewStatus], undefined>,
   'removeFromWishlist' : ActorMethod<[ListingId], undefined>,
   'saveCallerUserProfile' : ActorMethod<[string, string], UserProfile>,
+  'sendAdminAnnouncement' : ActorMethod<[string, string], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
   'setWishlistVisibility' : ActorMethod<[boolean], undefined>,
   'submitReview' : ActorMethod<[ListingId, bigint, string], Review>,
@@ -212,6 +257,11 @@ export interface _SERVICE {
   'updateSubscriptionStatus' : ActorMethod<
     [SubscriptionId, SubscriptionStatus],
     undefined
+  >,
+  'validateDiscountCode' : ActorMethod<
+    [string],
+    { 'ok' : DiscountCode } |
+      { 'error' : string }
   >,
 }
 export declare const idlService: IDL.ServiceClass;

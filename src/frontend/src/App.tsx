@@ -14,6 +14,8 @@ import ListingsPage from "./pages/ListingsPage";
 import PaymentFailure from "./pages/PaymentFailure";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
+import AdminDiscountCodes from "./pages/admin/AdminDiscountCodes";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminListings from "./pages/admin/AdminListings";
 import AdminOrders from "./pages/admin/AdminOrders";
@@ -181,6 +183,18 @@ const adminReviewsRoute = createRoute({
   component: AdminReviews,
 });
 
+const adminDiscountCodesRoute = createRoute({
+  getParentRoute: () => adminLayoutRoute,
+  path: "/discount-codes",
+  component: AdminDiscountCodes,
+});
+
+const adminAnnouncementsRoute = createRoute({
+  getParentRoute: () => adminLayoutRoute,
+  path: "/announcements",
+  component: AdminAnnouncements,
+});
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -205,6 +219,8 @@ const routeTree = rootRoute.addChildren([
     adminUsersRoute,
     adminSubscriptionsRoute,
     adminReviewsRoute,
+    adminDiscountCodesRoute,
+    adminAnnouncementsRoute,
     adminSettingsRoute,
   ]),
 ]);

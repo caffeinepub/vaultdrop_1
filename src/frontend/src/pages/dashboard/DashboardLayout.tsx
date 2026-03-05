@@ -16,6 +16,7 @@ import {
   User,
   Vault,
 } from "lucide-react";
+import NotificationCenter from "../../components/NotificationCenter";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "../../hooks/useQueries";
 
@@ -52,7 +53,7 @@ export default function DashboardLayout() {
       {/* ─── Sidebar ─────────────────────────────────────────── */}
       <aside className="w-60 shrink-0 flex flex-col border-r border-sidebar-border bg-sidebar">
         {/* Brand + wordmark */}
-        <div className="px-5 h-14 flex items-center border-b border-sidebar-border">
+        <div className="px-5 h-14 flex items-center justify-between border-b border-sidebar-border">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20 group-hover:border-primary/35 transition-colors">
               <Vault className="h-4 w-4 text-primary" />
@@ -61,6 +62,7 @@ export default function DashboardLayout() {
               Vault<span className="text-primary">Drop</span>
             </span>
           </Link>
+          <NotificationCenter />
         </div>
 
         {/* User identity block */}

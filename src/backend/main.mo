@@ -6,6 +6,7 @@ import Iter "mo:core/Iter";
 import Time "mo:core/Time";
 import Order "mo:core/Order";
 import Principal "mo:core/Principal";
+import Array "mo:core/Array";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
@@ -15,7 +16,9 @@ import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   type Timestamp = Int;
   public type UserId = Text;
@@ -25,14 +28,12 @@ actor {
   public type ReviewId = Text;
   public type WishlistId = Text;
 
-  // User Roles - Custom application roles
   public type AppUserRole = {
     #admin;
     #subscribed;
     #regular;
   };
 
-  // Listing Status
   public type ListingStatus = {
     #draft;
     #upcoming;
@@ -53,7 +54,6 @@ actor {
     };
   };
 
-  // User Profile
   public type UserProfile = {
     id : UserId;
     username : Text;
@@ -64,7 +64,6 @@ actor {
     isBanned : Bool;
   };
 
-  // Listing Model
   public type Listing = {
     id : ListingId;
     title : Text;
@@ -77,7 +76,6 @@ actor {
     updatedAt : Timestamp;
   };
 
-  // Order Status
   public type OrderStatus = {
     #pending;
     #completed;
@@ -98,7 +96,6 @@ actor {
     };
   };
 
-  // Order Model
   public type Order = {
     id : OrderId;
     userId : UserId;
@@ -108,9 +105,10 @@ actor {
     status : OrderStatus;
     createdAt : Timestamp;
     updatedAt : Timestamp;
+    usedDiscountCode : ?Text;
+    discountPercent : ?Nat;
   };
 
-  // Subscription Status
   public type SubscriptionStatus = {
     #active;
     #cancelled;
@@ -131,7 +129,6 @@ actor {
     };
   };
 
-  // Subscription Model
   public type Subscription = {
     id : SubscriptionId;
     userId : UserId;
@@ -142,7 +139,6 @@ actor {
     updatedAt : Timestamp;
   };
 
-  // Analytics Data
   public type Analytics = {
     totalRevenue : Nat;
     monthlyRevenue : Nat;
@@ -151,14 +147,12 @@ actor {
     topListings : [(ListingId, Nat)];
   };
 
-  // Review Status
   public type ReviewStatus = {
     #pending;
     #approved;
     #rejected;
   };
 
-  // Review Model
   public type Review = {
     id : ReviewId;
     listingId : ListingId;
@@ -170,7 +164,6 @@ actor {
     updatedAt : Timestamp;
   };
 
-  // Wishlist Model
   public type Wishlist = {
     userId : UserId;
     listingIds : List.List<ListingId>;
@@ -185,21 +178,51 @@ actor {
     updatedAt : Timestamp;
   };
 
-  // STRIPE INTEGRATION
-  var stripeConfig : ?Stripe.StripeConfiguration = null;
+  public type DiscountCode = {
+    id : Text;
+    code : Text;
+    discountPercent : Nat;
+    expiresAt : ?Timestamp;
+    usageLimit : ?Nat;
+    usageCount : Nat;
+    isActive : Bool;
+    createdAt : Timestamp;
+    updatedAt : Timestamp;
+  };
 
+  public type NotificationType = {
+    #purchaseCompleted;
+    #newListing;
+    #earlyAccessListing;
+    #subscriptionRenewalWarning;
+    #subscriptionExpired;
+    #wishlistPriceDrop;
+    #adminAnnouncement;
+  };
+
+  public type Notification = {
+    id : Text;
+    userId : UserId;
+    notificationType : NotificationType;
+    title : Text;
+    message : Text;
+    isRead : Bool;
+    createdAt : Timestamp;
+    relatedEntityId : ?Text;
+  };
+
+  var stripeConfig : ?Stripe.StripeConfiguration = null;
   let accessControlState = AccessControl.initState();
 
-  // Persistent Storage
   let users = Map.empty<UserId, UserProfile>();
   let listings = Map.empty<ListingId, Listing>();
   let orders = Map.empty<OrderId, Order>();
   let subscriptions = Map.empty<SubscriptionId, Subscription>();
-  let userPurchases = Map.empty<UserId, List.List<ListingId>>();
   let reviews = Map.empty<ReviewId, Review>();
   let wishlists = Map.empty<UserId, Wishlist>();
+  let discountCodes = Map.empty<Text, DiscountCode>();
+  let notifications = Map.empty<Text, Notification>();
 
-  // Helpers
   func getCurrentTime() : Timestamp {
     Time.now();
   };
@@ -236,7 +259,6 @@ actor {
     };
   };
 
-  // Authentication and Save Profile
   include MixinAuthorization(accessControlState);
   include MixinStorage();
 
@@ -292,7 +314,6 @@ actor {
     users.get(caller.toText());
   };
 
-  // User Management
   public shared ({ caller }) func banUser(userId : UserId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
@@ -318,7 +339,6 @@ actor {
     users.values().toArray();
   };
 
-  // Listings Management
   public shared ({ caller }) func createListing(title : Text, description : Text, price : Nat, status : ListingStatus, previewImageKey : ?Text, fileKey : ?Text) : async Listing {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
@@ -338,6 +358,21 @@ actor {
     };
 
     listings.add(listingId, listing);
+
+    if (status == #published) {
+      for ((userId, user) in users.entries()) {
+        if (user.role == #regular or user.role == #subscribed) {
+          ignore createNotification(userId, #newListing, "New Listing Available", "A new listing \"" # title # "\" is now available!", ?listingId);
+        };
+      };
+    } else if (status == #upcoming) {
+      for ((userId, user) in users.entries()) {
+        if (user.role == #subscribed) {
+          ignore createNotification(userId, #earlyAccessListing, "Early Access Listing", "Get early access to \"" # title # "\"!", ?listingId);
+        };
+      };
+    };
+
     listing;
   };
 
@@ -362,6 +397,30 @@ actor {
         };
 
         listings.add(listingId, updatedListing);
+
+        if (status == #published and existingListing.status != #published) {
+          for ((userId, user) in users.entries()) {
+            if (user.role == #regular or user.role == #subscribed) {
+              ignore createNotification(userId, #newListing, "New Listing Available", "A new listing \"" # title # "\" is now available!", ?listingId);
+            };
+          };
+        } else if (status == #upcoming and existingListing.status != #upcoming) {
+          for ((userId, user) in users.entries()) {
+            if (user.role == #subscribed) {
+              ignore createNotification(userId, #earlyAccessListing, "Early Access Listing", "Get early access to \"" # title # "\"!", ?listingId);
+            };
+          };
+        };
+
+        if (price < existingListing.price) {
+          for ((userId, wishlist) in wishlists.entries()) {
+            let hasListing = wishlist.listingIds.values().any(func(id) { id == listingId });
+            if (hasListing) {
+              ignore createNotification(userId, #wishlistPriceDrop, "Price Drop Alert", "The price of \"" # title # "\" has dropped!", ?listingId);
+            };
+          };
+        };
+
         updatedListing;
       };
     };
@@ -391,26 +450,55 @@ actor {
     );
   };
 
-  // Orders Management
-  public shared ({ caller }) func createOrder(listingId : ListingId, amount : Nat, paymentIntentId : ?Text) : async Order {
+  public shared ({ caller }) func createOrder(listingId : ListingId, amount : Nat, paymentIntentId : ?Text, discountCode : ?Text) : async Order {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can create orders");
     };
 
     let callerId = caller.toText();
 
-    // Check if user is banned
     if (isUserBanned(callerId)) {
       Runtime.trap("Unauthorized: Banned users cannot purchase");
     };
 
-    // Verify listing exists
     switch (listings.get(listingId)) {
       case (null) { Runtime.trap("Listing not found") };
       case (?listing) {
-        // Verify listing is published (only published listings can be purchased)
         if (listing.status != #published) {
           Runtime.trap("Unauthorized: Only published listings can be purchased");
+        };
+      };
+    };
+
+    var finalAmount = amount;
+    var usedDiscountCode : ?Text = null;
+    var discountPercent : ?Nat = null;
+
+    switch (discountCode) {
+      case (null) {};
+      case (?code) {
+        switch (validateDiscountCodeInternal(code)) {
+          case (null) {
+            Runtime.trap("Invalid discount code");
+          };
+          case (?validCode) {
+            switch (validCode.usageLimit) {
+              case (null) {};
+              case (?limit) {
+                if (validCode.usageCount >= limit) {
+                  Runtime.trap("Discount code usage limit reached");
+                };
+              };
+            };
+
+            let discount = validCode.discountPercent;
+            finalAmount := (finalAmount * (100 - discount)) / 100;
+            usedDiscountCode := ?code;
+            discountPercent := ?discount;
+            
+            let updatedCode = { validCode with usageCount = validCode.usageCount + 1; updatedAt = getCurrentTime() };
+            discountCodes.add(validCode.id, updatedCode);
+          };
         };
       };
     };
@@ -421,10 +509,12 @@ actor {
       userId = callerId;
       listingId;
       paymentIntentId;
-      amount;
+      amount = finalAmount;
       status = #pending;
       createdAt = getCurrentTime();
       updatedAt = getCurrentTime();
+      usedDiscountCode;
+      discountPercent;
     };
     orders.add(orderId, order);
     order;
@@ -436,19 +526,25 @@ actor {
       case (?order) {
         let callerId = caller.toText();
 
-        // Only admin or order owner can update order status
-        // Admin can mark as refunded, owner can update their own orders
         if (not AccessControl.isAdmin(accessControlState, caller) and order.userId != callerId) {
           Runtime.trap("Unauthorized: Can only update your own orders");
         };
 
-        // Only admins can mark orders as refunded
         if (status == #refunded and not AccessControl.isAdmin(accessControlState, caller)) {
           Runtime.trap("Unauthorized: Only admins can refund orders");
         };
 
         let updatedOrder = { order with status; updatedAt = getCurrentTime() };
         orders.add(orderId, updatedOrder);
+
+        if (status == #completed and order.status != #completed) {
+          switch (listings.get(order.listingId)) {
+            case (null) {};
+            case (?listing) {
+              ignore createNotification(order.userId, #purchaseCompleted, "Purchase Completed", "Your purchase of \"" # listing.title # "\" is complete!", ?orderId);
+            };
+          };
+        };
       };
     };
   };
@@ -487,7 +583,6 @@ actor {
     };
   };
 
-  // Subscription Management
   public shared ({ caller }) func createSubscription(stripeSubscriptionId : Text, currentPeriodEnd : Timestamp) : async Subscription {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can create subscriptions");
@@ -495,7 +590,6 @@ actor {
 
     let callerId = caller.toText();
 
-    // Check if user is banned
     if (isUserBanned(callerId)) {
       Runtime.trap("Unauthorized: Banned users cannot subscribe");
     };
@@ -513,7 +607,6 @@ actor {
 
     subscriptions.add(subscriptionId, subscription);
 
-    // Upgrade user role to subscribed
     switch (users.get(callerId)) {
       case (null) { };
       case (?user) {
@@ -531,7 +624,6 @@ actor {
       case (?subscription) {
         let callerId = caller.toText();
 
-        // Only admin or subscription owner can update
         if (not AccessControl.isAdmin(accessControlState, caller) and subscription.userId != callerId) {
           Runtime.trap("Unauthorized: Can only update your own subscription");
         };
@@ -539,7 +631,6 @@ actor {
         let updatedSubscription = { subscription with status; updatedAt = getCurrentTime() };
         subscriptions.add(subscriptionId, updatedSubscription);
 
-        // If subscription is cancelled or expired, downgrade user role to regular
         if (status == #cancelled or status == #expired) {
           switch (users.get(subscription.userId)) {
             case (null) { };
@@ -549,6 +640,10 @@ actor {
                 users.add(subscription.userId, updatedUser);
               };
             };
+          };
+
+          if (status == #expired and subscription.status != #expired) {
+            ignore createNotification(subscription.userId, #subscriptionExpired, "Subscription Expired", "Your subscription has expired.", ?subscriptionId);
           };
         };
       };
@@ -575,7 +670,6 @@ actor {
     );
   };
 
-  // Download Access
   public query ({ caller }) func getDownloadFileUrl(listingId : ListingId) : async ?Text {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can download files");
@@ -589,12 +683,10 @@ actor {
         switch (listing.fileKey) {
           case (null) { Runtime.trap("File not found") };
           case (?key) {
-            // Admins can always download
             if (AccessControl.isAdmin(accessControlState, caller)) {
               return ?key;
             };
 
-            // Check if user has a completed order for this listing
             let userCompletedOrders = orders.values().toArray().filter(
               func(order : Order) : Bool {
                 order.listingId == listingId and
@@ -614,13 +706,11 @@ actor {
     };
   };
 
-  // Analytics
   public query ({ caller }) func getAnalytics() : async Analytics {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
 
-    // Compute top selling listings
     let salesCount = Map.empty<ListingId, Nat>();
     let revenueCount = Map.empty<ListingId, Nat>();
 
@@ -644,7 +734,6 @@ actor {
 
     let topListings = salesCount.entries().toArray();
 
-    // Compute other analytics data
     let totalRevenue = orders.values().toArray().foldLeft(
       0,
       func(acc : Nat, order : Order) : Nat {
@@ -656,9 +745,8 @@ actor {
       },
     );
 
-    // Compute monthly revenue (current month)
     let currentTime = getCurrentTime();
-    let thirtyDaysAgo = currentTime - (30 * 24 * 60 * 60 * 1000000000); // 30 days in nanoseconds
+    let thirtyDaysAgo = currentTime - (30 * 24 * 60 * 60 * 1000000000);
 
     let monthlyRevenue = orders.values().toArray().foldLeft(
       0,
@@ -686,7 +774,6 @@ actor {
     };
   };
 
-  // Stripe Integration
   public shared ({ caller }) func setStripeConfiguration(config : Stripe.StripeConfiguration) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
@@ -717,11 +804,6 @@ actor {
     await Stripe.createCheckoutSession(getStripeConfig(), caller, items, successUrl, cancelUrl, transform);
   };
 
-  /////////////////////
-  //// NEW FEATURES ////
-  /////////////////////
-
-  // Reviews & Ratings
   public shared ({ caller }) func submitReview(listingId : ListingId, rating : Nat, comment : Text) : async Review {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can submit reviews");
@@ -729,7 +811,6 @@ actor {
 
     let callerId = caller.toText();
 
-    // Check if user has completed order for this listing
     let userCompletedOrders = orders.values().toArray().filter(
       func(order : Order) : Bool {
         order.listingId == listingId and
@@ -742,7 +823,6 @@ actor {
       Runtime.trap("Unauthorized: Must have a completed order to submit a review");
     };
 
-    // Prevent multiple reviews per user/listing
     let existingReview = reviews.values().toArray().find(
       func(review) {
         review.listingId == listingId and review.userId == callerId
@@ -805,7 +885,6 @@ actor {
     reviews.remove(reviewId);
   };
 
-  // Wishlist Management
   func toWishlistSnapshot(wishlist : Wishlist) : WishlistSnapshot {
     {
       userId = wishlist.userId;
@@ -820,7 +899,6 @@ actor {
       Runtime.trap("Unauthorized: Only users can modify wishlist");
     };
 
-    // Validate listing exists
     switch (listings.get(listingId)) {
       case (null) { Runtime.trap("Listing not found") };
       case (_) {};
@@ -931,5 +1009,200 @@ actor {
       };
     };
   };
-};
 
+  // Discount Codes
+
+  public shared ({ caller }) func createDiscountCode(code : Text, discountPercent : Nat, expiresAt : ?Timestamp, usageLimit : ?Nat) : async DiscountCode {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can create discount codes");
+    };
+
+    if (discountPercent < 1 or discountPercent > 100) {
+      Runtime.trap("Invalid discount percentage");
+    };
+
+    let codeId = code.concat(getCurrentTime().toText());
+    let discountCode : DiscountCode = {
+      id = codeId;
+      code;
+      discountPercent;
+      expiresAt;
+      usageLimit;
+      usageCount = 0;
+      isActive = true;
+      createdAt = getCurrentTime();
+      updatedAt = getCurrentTime();
+    };
+
+    discountCodes.add(codeId, discountCode);
+    discountCode;
+  };
+
+  public shared ({ caller }) func deactivateDiscountCode(codeId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can deactivate discount codes");
+    };
+
+    switch (discountCodes.get(codeId)) {
+      case (null) { Runtime.trap("Discount code not found") };
+      case (?discountCode) {
+        let updatedCode = { discountCode with isActive = false; updatedAt = getCurrentTime() };
+        discountCodes.add(codeId, updatedCode);
+      };
+    };
+  };
+
+  public query ({ caller }) func getDiscountCodes() : async [DiscountCode] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view discount codes");
+    };
+    discountCodes.values().toArray();
+  };
+
+  func validateDiscountCodeInternal(code : Text) : ?DiscountCode {
+    let allCodes = discountCodes.toArray();
+    let codeOpt = allCodes.find(
+      func((_, c)) { c.code == code }
+    );
+
+    switch (codeOpt) {
+      case (null) { null };
+      case (?(_, discountCode)) {
+        if (not discountCode.isActive) {
+          return null;
+        };
+
+        switch (discountCode.expiresAt) {
+          case (null) { ?discountCode };
+          case (?expires) {
+            if (expires <= getCurrentTime()) {
+              null;
+            } else {
+              ?discountCode;
+            };
+          };
+        };
+      };
+    };
+  };
+
+  public query func validateDiscountCode(code : Text) : async {
+    #ok : DiscountCode;
+    #error : Text;
+  } {
+    switch (validateDiscountCodeInternal(code)) {
+      case (?discountCode) { 
+        switch (discountCode.usageLimit) {
+          case (null) { #ok(discountCode) };
+          case (?limit) {
+            if (discountCode.usageCount >= limit) {
+              #error("Discount code usage limit reached");
+            } else {
+              #ok(discountCode);
+            };
+          };
+        };
+      };
+      case (null) { #error("Invalid or expired discount code") };
+    };
+  };
+
+  // Notification System
+
+  func createNotification(userId : UserId, notificationType : NotificationType, title : Text, message : Text, relatedEntityId : ?Text) : Notification {
+    let notificationId = userId.concat(title).concat(getCurrentTime().toText());
+    let notification : Notification = {
+      id = notificationId;
+      userId;
+      notificationType;
+      title;
+      message;
+      isRead = false;
+      createdAt = getCurrentTime();
+      relatedEntityId;
+    };
+
+    notifications.add(notificationId, notification);
+    notification;
+  };
+
+  public shared ({ caller }) func sendAdminAnnouncement(title : Text, message : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can send announcements");
+    };
+
+    for ((userId, _) in users.entries()) {
+      ignore createNotification(userId, #adminAnnouncement, title, message, null);
+    };
+  };
+
+  public query ({ caller }) func getCallerNotifications() : async [Notification] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access notifications");
+    };
+
+    let callerId = caller.toText();
+    let userNotifications = notifications.values().toArray().filter(
+      func(notification) { notification.userId == callerId }
+    );
+
+    userNotifications;
+  };
+
+  public query ({ caller }) func getUnreadNotificationCount() : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access notifications");
+    };
+
+    let callerId = caller.toText();
+    notifications.values().toArray().filter(
+      func(notification) { notification.userId == callerId and not notification.isRead }
+    ).size();
+  };
+
+  public shared ({ caller }) func markNotificationRead(notificationId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can modify notifications");
+    };
+
+    let callerId = caller.toText();
+    switch (notifications.get(notificationId)) {
+      case (null) { Runtime.trap("Notification not found") };
+      case (?notification) {
+        if (notification.userId != callerId) {
+          Runtime.trap("Unauthorized: You do not own this notification");
+        };
+
+        let updatedNotification = { notification with isRead = true };
+        notifications.add(notificationId, updatedNotification);
+      };
+    };
+  };
+
+  public shared ({ caller }) func markAllNotificationsRead() : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can modify notifications");
+    };
+
+    let callerId = caller.toText();
+    for ((notificationId, notification) in notifications.entries()) {
+      if (notification.userId == callerId and not notification.isRead) {
+        let updatedNotification = { notification with isRead = true };
+        notifications.add(notificationId, updatedNotification);
+      };
+    };
+  };
+
+  public shared ({ caller }) func clearReadNotifications() : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can modify notifications");
+    };
+
+    let callerId = caller.toText();
+    for ((notificationId, notification) in notifications.entries()) {
+      if (notification.userId == callerId and notification.isRead) {
+        notifications.remove(notificationId);
+      };
+    };
+  };
+};

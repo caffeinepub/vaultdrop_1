@@ -11,6 +11,7 @@ import {
   BarChart3,
   ChevronRight,
   LogOut,
+  Megaphone,
   MessageSquareDot,
   Package,
   Settings,
@@ -18,6 +19,7 @@ import {
   ShoppingBag,
   Star,
   Store,
+  Tag,
   Users,
   Vault,
 } from "lucide-react";
@@ -31,6 +33,8 @@ const navItems = [
   { path: "/admin/users", icon: Users, label: "Users" },
   { path: "/admin/subscriptions", icon: Star, label: "Subscriptions" },
   { path: "/admin/reviews", icon: MessageSquareDot, label: "Reviews" },
+  { path: "/admin/discount-codes", icon: Tag, label: "Discount Codes" },
+  { path: "/admin/announcements", icon: Megaphone, label: "Announcements" },
   { path: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 

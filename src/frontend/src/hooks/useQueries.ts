@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   Analytics,
+  DiscountCode,
   Listing,
   ListingId,
   ListingStatus,
+  Notification,
   Order,
   OrderStatus,
   Review,
@@ -203,12 +205,14 @@ export function useCreateOrder() {
       listingId: string;
       amount: bigint;
       paymentIntentId: string | null;
+      discountCode?: string | null;
     }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.createOrder(
         params.listingId,
         params.amount,
         params.paymentIntentId,
+        params.discountCode ?? null,
       );
     },
     onSuccess: () => {
@@ -579,6 +583,150 @@ export function useSetWishlistVisibility() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["callerWishlist"] });
+    },
+  });
+}
+
+// ─── Discount Codes ───────────────────────────────────────────────────────────
+
+export function useGetDiscountCodes() {
+  const { actor, isFetching } = useActor();
+  return useQuery<DiscountCode[]>({
+    queryKey: ["discountCodes"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getDiscountCodes();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateDiscountCode() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      code: string;
+      discountPercent: bigint;
+      expiresAt: bigint | null;
+      usageLimit: bigint | null;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.createDiscountCode(
+        params.code,
+        params.discountPercent,
+        params.expiresAt,
+        params.usageLimit,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["discountCodes"] });
+    },
+  });
+}
+
+export function useDeactivateDiscountCode() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (codeId: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.deactivateDiscountCode(codeId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["discountCodes"] });
+    },
+  });
+}
+
+export function useValidateDiscountCode() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (code: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.validateDiscountCode(code);
+    },
+  });
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export function useGetCallerNotifications() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Notification[]>({
+    queryKey: ["callerNotifications"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getCallerNotifications();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetUnreadNotificationCount() {
+  const { actor, isFetching } = useActor();
+  return useQuery<bigint>({
+    queryKey: ["unreadNotificationCount"],
+    queryFn: async () => {
+      if (!actor) return 0n;
+      return actor.getUnreadNotificationCount();
+    },
+    enabled: !!actor && !isFetching,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useMarkNotificationRead() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (notificationId: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.markNotificationRead(notificationId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["callerNotifications"] });
+      queryClient.invalidateQueries({ queryKey: ["unreadNotificationCount"] });
+    },
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.markAllNotificationsRead();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["callerNotifications"] });
+      queryClient.invalidateQueries({ queryKey: ["unreadNotificationCount"] });
+    },
+  });
+}
+
+export function useClearReadNotifications() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.clearReadNotifications();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["callerNotifications"] });
+      queryClient.invalidateQueries({ queryKey: ["unreadNotificationCount"] });
+    },
+  });
+}
+
+export function useSendAdminAnnouncement() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (params: { title: string; message: string }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.sendAdminAnnouncement(params.title, params.message);
     },
   });
 }

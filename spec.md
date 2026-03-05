@@ -1,62 +1,60 @@
 # VaultDrop
 
 ## Current State
-
 VaultDrop is a digital downloads marketplace with:
-- Admin-only listings management (create, edit, delete, with file/preview image uploads)
-- Three user roles: admin, subscribed, regular
-- Subscribed users get early access to "upcoming" listings
-- Stripe checkout for one-time purchases and monthly subscriptions
-- Admin dashboard: analytics (KPIs + revenue chart), orders management (refund), users management (ban/unban), subscriptions management, settings (Stripe key)
-- User dashboard: browse listings, orders/downloads, subscription status, profile
-- Authorization via MixinAuthorization; blob storage via MixinStorage
+- Admin dashboard: analytics, listings CRUD, orders/refunds, user management (ban/unban), subscription management, review moderation
+- User dashboard: browse/purchase listings, order history, downloads, subscription, wishlist (public/private), reviews
+- Stripe integration: one-time purchases and monthly subscriptions
+- Role system: admin, subscribed, regular
+- Reviews & Ratings: verified purchase required, admin moderation (approve/reject/delete)
+- Wishlist: public/private toggle, shareable link, dedicated tab in user dashboard
 
 ## Requested Changes (Diff)
 
 ### Add
+1. **Discount Codes system**
+   - DiscountCode model: code (unique text), discountPercent (Nat 1-100), expiresAt (optional Timestamp), usageLimit (optional Nat), usageCount (Nat), isActive (Bool), createdAt, updatedAt
+   - Backend: createDiscountCode, getDiscountCodes (admin), validateDiscountCode (any user, returns code details if valid), redeemDiscountCode (user, increments usageCount), deactivateDiscountCode (admin)
+   - Validation rules: code must be active, not expired, under usage limit
+   - Applies to one-time purchases only (not subscriptions)
+   - Checkout flow: user enters code before payment, sees discounted price
 
-**Reviews & Ratings**
-- `Review` data model: id, listingId, userId, rating (1–5), comment, status (pending/approved/rejected), createdAt, updatedAt
-- Backend endpoints:
-  - `submitReview(listingId, rating, comment)` — caller must have a completed order for the listing; creates review with status=pending
-  - `getApprovedReviews(listingId)` — public, returns only approved reviews for a listing
-  - `getAllReviews()` — admin only, returns all reviews across all listings
-  - `moderateReview(reviewId, status)` — admin only, sets review to approved or rejected
-  - `deleteReview(reviewId)` — admin only
-- Average star rating computed from approved reviews per listing
-- Listing detail page shows approved reviews with star ratings and average
-- User dashboard shows which listings the user has reviewed (and can submit a review for purchased listings they haven't reviewed yet)
-- Admin dashboard gets a "Reviews" moderation panel: table of pending/all reviews with approve, reject, delete actions
-
-**Wishlist**
-- `Wishlist` data model: one per user — userId, listingIds (list), isPublic (bool), updatedAt
-- Backend endpoints:
-  - `addToWishlist(listingId)` — caller adds listing to their wishlist
-  - `removeFromWishlist(listingId)` — caller removes listing from their wishlist
-  - `getCallerWishlist()` — returns caller's own wishlist with full listing objects
-  - `setWishlistVisibility(isPublic)` — caller toggles public/private
-  - `getPublicWishlist(userId)` — returns wishlist if isPublic=true, else error
-- User dashboard: dedicated "Wishlist" tab showing saved listings, visibility toggle, shareable link when public
-- Listing cards/detail page: heart/bookmark button to add/remove from wishlist
+2. **Notification system**
+   - Notification model: id, userId, type (NotificationType), title, message, isRead (Bool), createdAt, relatedEntityId (optional - listingId or orderId)
+   - NotificationType variants: #purchaseCompleted, #newListing, #earlyAccessListing, #subscriptionRenewalWarning, #subscriptionExpired, #wishlistPriceDrop, #adminAnnouncement
+   - Backend functions:
+     - createNotification (internal helper)
+     - getCallerNotifications: returns user's notifications sorted newest first
+     - markNotificationRead(notificationId): mark single as read
+     - markAllNotificationsRead: mark all caller's notifications as read
+     - clearNotifications: remove all read notifications for caller
+     - sendAdminAnnouncement(title, message): admin-only, creates notifications for ALL users
+     - Trigger hooks: call createNotification internally when:
+       - Order status changes to #completed → #purchaseCompleted for that user
+       - Listing created/updated to #published → #newListing for all regular+subscribed users
+       - Listing created/updated to #upcoming → #earlyAccessListing for all subscribed users
+       - createSubscription called → track period end, warn 3 days before expiry (#subscriptionRenewalWarning)
+       - updateSubscriptionStatus to #expired → #subscriptionExpired for that user
+       - Listing price changes (updateListing with new price) → #wishlistPriceDrop for users who have that listing in wishlist
+   - getUnreadNotificationCount: fast query for badge count
 
 ### Modify
-
-- Listing detail page: add reviews section below listing details (average rating, list of approved reviews, submit review form for eligible purchasers)
-- User dashboard: add "Wishlist" tab alongside existing Orders/Downloads/Subscription/Profile tabs
-- Admin dashboard: add "Reviews" tab in the navigation for moderation panel
+- createOrder: after status set to #pending, also accept discountCodeId param (optional), validate and apply discount, store discountedAmount
+- updateOrderStatus: when status → #completed, trigger purchaseCompleted notification for order's user
+- createListing / updateListing: trigger #newListing or #earlyAccessListing notifications based on new status; trigger #wishlistPriceDrop if price changed
+- Order model: add optional discountCode field (the code used) and discountPercent field
 
 ### Remove
-
-Nothing removed.
+- Nothing removed
 
 ## Implementation Plan
-
-1. Add `Review` type, `Wishlist` type, and review/wishlist storage maps to Motoko backend
-2. Implement review endpoints: submitReview (purchase-verified), getApprovedReviews, getAllReviews, moderateReview, deleteReview
-3. Implement wishlist endpoints: addToWishlist, removeFromWishlist, getCallerWishlist, setWishlistVisibility, getPublicWishlist
-4. Regenerate backend.d.ts to expose new types and methods to frontend
-5. Frontend — Listing detail page: add reviews section (average star, review list, submit form gated on verified purchase)
-6. Frontend — User dashboard: add Wishlist tab (listing cards with remove button, visibility toggle, shareable link)
-7. Frontend — Listing cards and detail page: add wishlist heart/bookmark toggle button
-8. Frontend — Admin dashboard: add Reviews tab with moderation table (pending filter, approve/reject/delete actions)
-9. Apply deterministic data-ocid markers to all new interactive surfaces
+1. Add DiscountCode type and notifications map + notification type to backend
+2. Add DiscountCode CRUD backend functions (create, list, validate, redeem, deactivate)
+3. Add Notification CRUD backend functions (get, markRead, markAll, clear, sendAnnouncement)
+4. Wire notification triggers into existing order/listing/subscription update functions
+5. Add discountCode param to createOrder, validate and apply discount percentage
+6. Frontend - Admin: Add "Discount Codes" tab to admin dashboard (create code form, list active/expired codes, deactivate)
+7. Frontend - Admin: Add "Announcements" send panel under notifications section or in settings
+8. Frontend - User: Add notification bell icon with unread badge in nav, notification dropdown panel (mark read, clear)
+9. Frontend - User: Add discount code input field at checkout step with real-time validation and price preview
+10. Frontend - Admin: Review moderation panel already exists; no changes needed
