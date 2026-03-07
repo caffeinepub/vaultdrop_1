@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -8,11 +9,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Package, ShoppingBag } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { FileText, Package, ShoppingBag } from "lucide-react";
 import { motion } from "motion/react";
 import { type Listing, type Order, OrderStatus } from "../../backend";
 import { SAMPLE_LISTINGS } from "../../data/sampleListings";
-import { useGetListings, useGetUserOrders } from "../../hooks/useQueries";
+import {
+  useGetCallerUserProfile,
+  useGetListings,
+  useGetUserOrders,
+} from "../../hooks/useQueries";
+import { downloadReceipt } from "../../utils/generateReceipt";
 
 function formatPrice(cents: bigint): string {
   return `$${(Number(cents) / 100).toFixed(2)}`;
@@ -52,6 +64,7 @@ function getStatusBadge(status: OrderStatus) {
 export default function DashboardOrders() {
   const { data: orders, isLoading: ordersLoading } = useGetUserOrders();
   const { data: backendListings } = useGetListings();
+  const { data: userProfile } = useGetCallerUserProfile();
 
   const listings =
     backendListings && backendListings.length > 0
@@ -60,6 +73,15 @@ export default function DashboardOrders() {
 
   const getListingTitle = (listingId: string) => {
     return listings.find((l) => l.id === listingId)?.title ?? listingId;
+  };
+
+  const handleDownloadReceipt = (order: Order) => {
+    if (!userProfile) return;
+    downloadReceipt({
+      order,
+      listingTitle: getListingTitle(order.listingId),
+      userProfile,
+    });
   };
 
   return (
@@ -93,6 +115,7 @@ export default function DashboardOrders() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          data-ocid="orders.empty_state"
           className="flex flex-col items-center justify-center py-24 gap-4"
         >
           <div className="p-4 rounded-full bg-muted/40 border border-border/40">
@@ -106,50 +129,78 @@ export default function DashboardOrders() {
           </p>
         </motion.div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="rounded-xl border border-border/60 overflow-hidden"
-        >
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border/60 hover:bg-transparent">
-                <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground">
-                  Product
-                </TableHead>
-                <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground">
-                  Date
-                </TableHead>
-                <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground">
-                  Amount
-                </TableHead>
-                <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground">
-                  Status
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders.map((order: Order) => (
-                <TableRow
-                  key={order.id}
-                  className="border-border/40 hover:bg-muted/30"
-                >
-                  <TableCell className="font-body font-medium text-foreground">
-                    {getListingTitle(order.listingId)}
-                  </TableCell>
-                  <TableCell className="font-body text-sm text-muted-foreground">
-                    {formatDate(order.createdAt)}
-                  </TableCell>
-                  <TableCell className="font-display font-bold text-primary text-sm">
-                    {formatPrice(order.amount)}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(order.status)}</TableCell>
+        <TooltipProvider>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="rounded-xl border border-border/60 overflow-hidden"
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/60 hover:bg-transparent">
+                  <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground">
+                    Product
+                  </TableHead>
+                  <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground">
+                    Date
+                  </TableHead>
+                  <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground">
+                    Amount
+                  </TableHead>
+                  <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="font-display font-bold text-xs uppercase tracking-wider text-muted-foreground w-[80px]">
+                    Receipt
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </motion.div>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order: Order, index: number) => (
+                  <TableRow
+                    key={order.id}
+                    className="border-border/40 hover:bg-muted/30"
+                  >
+                    <TableCell className="font-body font-medium text-foreground">
+                      {getListingTitle(order.listingId)}
+                    </TableCell>
+                    <TableCell className="font-body text-sm text-muted-foreground">
+                      {formatDate(order.createdAt)}
+                    </TableCell>
+                    <TableCell className="font-display font-bold text-primary text-sm">
+                      {formatPrice(order.amount)}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(order.status)}</TableCell>
+                    <TableCell>
+                      {order.status === OrderStatus.completed ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              onClick={() => handleDownloadReceipt(order)}
+                              data-ocid={`orders.receipt.button.${index + 1}`}
+                            >
+                              <FileText className="h-4 w-4" />
+                              <span className="sr-only">Download Receipt</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="left">
+                            <p>Download Receipt</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <span />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </motion.div>
+        </TooltipProvider>
       )}
     </div>
   );

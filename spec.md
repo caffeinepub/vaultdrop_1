@@ -1,60 +1,37 @@
 # VaultDrop
 
 ## Current State
-VaultDrop is a digital downloads marketplace with:
-- Admin dashboard: analytics, listings CRUD, orders/refunds, user management (ban/unban), subscription management, review moderation
-- User dashboard: browse/purchase listings, order history, downloads, subscription, wishlist (public/private), reviews
-- Stripe integration: one-time purchases and monthly subscriptions
-- Role system: admin, subscribed, regular
-- Reviews & Ratings: verified purchase required, admin moderation (approve/reject/delete)
-- Wishlist: public/private toggle, shareable link, dedicated tab in user dashboard
+- Authentication uses Internet Identity (ICP-native, cryptographic keypair auth)
+- Sign-in is a single button in the Navbar; clicking it opens the II popup window
+- AuthGate component guards `/dashboard` and `/admin` routes -- unauthenticated users are silently redirected to `/`
+- ProfileSetupModal is shown inline after first login (full-screen overlay)
+- No dedicated sign-in page exists; no visual cue about what Internet Identity is
+- Admin panel has no visual distinction on the auth guard flow
+- No "sign in required" interstitial -- protected routes just redirect without explanation
+- Session expiry is handled silently (idle detection disabled)
 
 ## Requested Changes (Diff)
 
 ### Add
-1. **Discount Codes system**
-   - DiscountCode model: code (unique text), discountPercent (Nat 1-100), expiresAt (optional Timestamp), usageLimit (optional Nat), usageCount (Nat), isActive (Bool), createdAt, updatedAt
-   - Backend: createDiscountCode, getDiscountCodes (admin), validateDiscountCode (any user, returns code details if valid), redeemDiscountCode (user, increments usageCount), deactivateDiscountCode (admin)
-   - Validation rules: code must be active, not expired, under usage limit
-   - Applies to one-time purchases only (not subscriptions)
-   - Checkout flow: user enters code before payment, sees discounted price
-
-2. **Notification system**
-   - Notification model: id, userId, type (NotificationType), title, message, isRead (Bool), createdAt, relatedEntityId (optional - listingId or orderId)
-   - NotificationType variants: #purchaseCompleted, #newListing, #earlyAccessListing, #subscriptionRenewalWarning, #subscriptionExpired, #wishlistPriceDrop, #adminAnnouncement
-   - Backend functions:
-     - createNotification (internal helper)
-     - getCallerNotifications: returns user's notifications sorted newest first
-     - markNotificationRead(notificationId): mark single as read
-     - markAllNotificationsRead: mark all caller's notifications as read
-     - clearNotifications: remove all read notifications for caller
-     - sendAdminAnnouncement(title, message): admin-only, creates notifications for ALL users
-     - Trigger hooks: call createNotification internally when:
-       - Order status changes to #completed → #purchaseCompleted for that user
-       - Listing created/updated to #published → #newListing for all regular+subscribed users
-       - Listing created/updated to #upcoming → #earlyAccessListing for all subscribed users
-       - createSubscription called → track period end, warn 3 days before expiry (#subscriptionRenewalWarning)
-       - updateSubscriptionStatus to #expired → #subscriptionExpired for that user
-       - Listing price changes (updateListing with new price) → #wishlistPriceDrop for users who have that listing in wishlist
-   - getUnreadNotificationCount: fast query for badge count
+- Dedicated `/sign-in` route with a full-page sign-in UI explaining Internet Identity, showing VaultDrop branding, and a clear "Sign In with Internet Identity" primary CTA
+- Separate `/admin/sign-in` route (or parameter) with an admin-specific sign-in wall -- distinct amber/gold admin branding, "Admin Access Only" messaging
+- "Sign in required" interstitial screen shown by AuthGate instead of silent redirect -- explains why sign-in is needed (user dashboard access or admin panel access) with a button to go to sign-in
+- Security trust indicators on sign-in screens: ICP/II badge, "No password stored", "Cryptographic identity" callout
+- Session status indicator in the Navbar: show a subtle "Session active" / lock icon badge on the authenticated avatar
+- Sign-out confirmation dialog (AlertDialog) to prevent accidental logout
 
 ### Modify
-- createOrder: after status set to #pending, also accept discountCodeId param (optional), validate and apply discount, store discountedAmount
-- updateOrderStatus: when status → #completed, trigger purchaseCompleted notification for order's user
-- createListing / updateListing: trigger #newListing or #earlyAccessListing notifications based on new status; trigger #wishlistPriceDrop if price changed
-- Order model: add optional discountCode field (the code used) and discountPercent field
+- AuthGate: instead of `navigate({ to: "/" })` on unauthenticated access, render an inline "Access Required" screen with sign-in CTA specific to context (user vs admin)
+- Navbar Sign In button: link to `/sign-in` instead of calling `login()` directly -- or show a sign-in sheet/dialog with the II explanation before opening the popup
+- ProfileSetupModal: add email format validation and username length validation (3-20 chars, alphanumeric + underscore) with inline error messages
 
 ### Remove
-- Nothing removed
+- Silent redirect behavior (navigate to `/` without any message when hitting a protected route unauthenticated)
 
 ## Implementation Plan
-1. Add DiscountCode type and notifications map + notification type to backend
-2. Add DiscountCode CRUD backend functions (create, list, validate, redeem, deactivate)
-3. Add Notification CRUD backend functions (get, markRead, markAll, clear, sendAnnouncement)
-4. Wire notification triggers into existing order/listing/subscription update functions
-5. Add discountCode param to createOrder, validate and apply discount percentage
-6. Frontend - Admin: Add "Discount Codes" tab to admin dashboard (create code form, list active/expired codes, deactivate)
-7. Frontend - Admin: Add "Announcements" send panel under notifications section or in settings
-8. Frontend - User: Add notification bell icon with unread badge in nav, notification dropdown panel (mark read, clear)
-9. Frontend - User: Add discount code input field at checkout step with real-time validation and price preview
-10. Frontend - Admin: Review moderation panel already exists; no changes needed
+1. Create `SignInPage.tsx` at `/sign-in` -- VaultDrop-branded full-page with II explanation, security badges, and "Sign In with Internet Identity" button
+2. Create `AdminSignInPage.tsx` at `/admin/sign-in` -- admin-themed (amber) version of sign-in page
+3. Update `AuthGate.tsx` -- replace silent redirect with an inline "Access Required" interstitial component that shows context-specific messaging and a sign-in button
+4. Update `Navbar.tsx` -- Sign In button navigates to `/sign-in`; add sign-out confirmation AlertDialog; add subtle session indicator on authenticated avatar
+5. Update `ProfileSetupModal.tsx` -- add client-side validation for username (3-20 chars, alphanumeric/underscore) and email format with inline error states
+6. Add routes for `/sign-in` and `/admin/sign-in` in `App.tsx`

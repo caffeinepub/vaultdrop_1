@@ -19,6 +19,7 @@ const CATEGORIES = [
   "Code",
   "Icons",
   "Business",
+  "Developer Tools",
 ];
 
 export default function ListingsPage() {
@@ -44,9 +45,13 @@ export default function ListingsPage() {
       ) {
         return false;
       }
+      if (category !== "All") {
+        const listingCategory = "category" in l ? (l.category as string) : null;
+        if (listingCategory !== category) return false;
+      }
       return true;
     });
-  }, [allListings, search]);
+  }, [allListings, search, category]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -91,6 +96,7 @@ export default function ListingsPage() {
               <button
                 type="button"
                 key={cat}
+                data-ocid="listings.category.tab"
                 onClick={() => setCategory(cat)}
                 className={`px-3 py-1 rounded-full text-xs font-display font-semibold transition-all ${
                   category === cat

@@ -8,11 +8,13 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import AuthGate from "./components/AuthGate";
+import AdminSignInPage from "./pages/AdminSignInPage";
 import LandingPage from "./pages/LandingPage";
 import ListingDetailPage from "./pages/ListingDetailPage";
 import ListingsPage from "./pages/ListingsPage";
 import PaymentFailure from "./pages/PaymentFailure";
 import PaymentSuccess from "./pages/PaymentSuccess";
+import SignInPage from "./pages/SignInPage";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import AdminDiscountCodes from "./pages/admin/AdminDiscountCodes";
@@ -69,6 +71,18 @@ const paymentFailureRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/payment-failure",
   component: PaymentFailure,
+});
+
+const signInRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/sign-in",
+  component: SignInPage,
+});
+
+const adminSignInRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/admin/sign-in",
+  component: AdminSignInPage,
 });
 
 // ─── User Dashboard ───────────────────────────────────────────────────────────
@@ -203,6 +217,8 @@ const routeTree = rootRoute.addChildren([
   listingDetailRoute,
   paymentSuccessRoute,
   paymentFailureRoute,
+  signInRoute,
+  adminSignInRoute,
   dashboardLayoutRoute.addChildren([
     dashboardIndexRoute,
     dashboardOrdersRoute,

@@ -78,15 +78,15 @@ const heroProducts = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { identity, login, loginStatus } = useInternetIdentity();
+  const { identity } = useInternetIdentity();
   const isAuthenticated = !!identity;
-  const isLoggingIn = loginStatus === "logging-in";
+  const isLoggingIn = false;
 
-  const handleCTA = async () => {
+  const handleCTA = () => {
     if (isAuthenticated) {
       navigate({ to: "/listings" });
     } else {
-      await login();
+      navigate({ to: "/sign-in" });
     }
   };
 

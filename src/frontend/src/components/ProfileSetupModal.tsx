@@ -6,14 +6,44 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useSaveCallerUserProfile } from "../hooks/useQueries";
 
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateUsername(value: string): string | null {
+  if (!value.trim()) return "Username is required.";
+  if (!USERNAME_REGEX.test(value.trim()))
+    return "3–20 characters. Letters, numbers, and underscores only.";
+  return null;
+}
+
+function validateEmail(value: string): string | null {
+  if (!value.trim()) return "Email address is required.";
+  if (!EMAIL_REGEX.test(value.trim())) return "Enter a valid email address.";
+  return null;
+}
+
 export default function ProfileSetupModal() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
   const saveProfile = useSaveCallerUserProfile();
+
+  const usernameError = usernameTouched ? validateUsername(username) : null;
+  const emailError = emailTouched ? validateEmail(email) : null;
+
+  const isValid =
+    validateUsername(username) === null && validateEmail(email) === null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !email.trim()) return;
+    // Touch all fields on submit to surface errors
+    setUsernameTouched(true);
+    setEmailTouched(true);
+    if (!isValid) return;
+
     try {
       await saveProfile.mutateAsync({
         username: username.trim(),
@@ -44,7 +74,8 @@ export default function ProfileSetupModal() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            {/* Username */}
             <div className="space-y-2">
               <Label
                 htmlFor="username"
@@ -58,12 +89,30 @@ export default function ProfileSetupModal() {
                 placeholder="your_handle"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                required
-                className="bg-muted/50 border-border/60 focus:border-primary/60 focus:ring-primary/20 font-body"
+                onBlur={() => setUsernameTouched(true)}
+                aria-invalid={!!usernameError}
+                aria-describedby={usernameError ? "username-error" : undefined}
+                className={`bg-muted/50 border-border/60 focus:border-primary/60 focus:ring-primary/20 font-body ${
+                  usernameError
+                    ? "border-destructive/60 focus:border-destructive/60"
+                    : ""
+                }`}
                 autoComplete="username"
+                data-ocid="profile-setup.input"
               />
+              {usernameError && (
+                <p
+                  id="username-error"
+                  className="text-destructive text-xs mt-1"
+                  role="alert"
+                  data-ocid="profile-setup.error_state"
+                >
+                  {usernameError}
+                </p>
+              )}
             </div>
 
+            {/* Email */}
             <div className="space-y-2">
               <Label
                 htmlFor="email"
@@ -77,18 +126,37 @@ export default function ProfileSetupModal() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
-                className="bg-muted/50 border-border/60 focus:border-primary/60 focus:ring-primary/20 font-body"
+                onBlur={() => setEmailTouched(true)}
+                aria-invalid={!!emailError}
+                aria-describedby={emailError ? "email-error" : undefined}
+                className={`bg-muted/50 border-border/60 focus:border-primary/60 focus:ring-primary/20 font-body ${
+                  emailError
+                    ? "border-destructive/60 focus:border-destructive/60"
+                    : ""
+                }`}
                 autoComplete="email"
+                data-ocid="profile-setup.textarea"
               />
+              {emailError && (
+                <p
+                  id="email-error"
+                  className="text-destructive text-xs mt-1"
+                  role="alert"
+                  data-ocid="profile-setup.error_state"
+                >
+                  {emailError}
+                </p>
+              )}
             </div>
 
             <Button
               type="submit"
               disabled={
-                saveProfile.isPending || !username.trim() || !email.trim()
+                saveProfile.isPending ||
+                (usernameTouched && emailTouched && !isValid)
               }
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-display font-semibold shadow-glow"
+              data-ocid="profile-setup.submit_button"
             >
               {saveProfile.isPending ? (
                 <>
