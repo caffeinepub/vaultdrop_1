@@ -36,6 +36,13 @@ export default function Footer() {
               Open Source
             </Link>
             <Link
+              to="/affiliate"
+              className="hover:text-foreground transition-colors"
+              data-ocid="footer.affiliates.link"
+            >
+              Affiliates
+            </Link>
+            <Link
               to="/dashboard/orders"
               className="hover:text-foreground transition-colors"
               data-ocid="footer.dashboard.link"

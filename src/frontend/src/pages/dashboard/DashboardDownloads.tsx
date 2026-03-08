@@ -2,7 +2,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Download, FileDown, Inbox, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  Copy,
+  Download,
+  FileDown,
+  Inbox,
+  Key,
+  Loader2,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -14,11 +23,38 @@ import {
   useGetUserOrders,
 } from "../../hooks/useQueries";
 
+// ─── License Key Utilities ────────────────────────────────────────────────────
+
+function generateDisplayLicenseKey(orderId: string): string {
+  const hash = orderId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const segments: string[] = [];
+  let seed = hash;
+  for (let i = 0; i < 4; i++) {
+    seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+    segments.push(
+      Math.abs(seed).toString(16).toUpperCase().padStart(6, "0").slice(0, 6),
+    );
+  }
+  return segments.join("-");
+}
+
 export default function DashboardDownloads() {
   const { data: orders, isLoading: ordersLoading } = useGetUserOrders();
   const { data: backendListings } = useGetListings();
   const getDownloadUrl = useGetDownloadFileUrl();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+
+  const handleCopyKey = async (orderId: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(key);
+      setCopiedKeyId(orderId);
+      toast.success("License key copied!");
+      setTimeout(() => setCopiedKeyId(null), 2000);
+    } catch {
+      toast.error("Failed to copy license key");
+    }
+  };
 
   const listings =
     backendListings && backendListings.length > 0
@@ -112,6 +148,8 @@ export default function DashboardDownloads() {
           {completedOrders.map((order, i) => {
             const listing = getListing(order.listingId);
             const isDownloading = downloadingId === order.listingId;
+            const licenseKey = generateDisplayLicenseKey(order.id);
+            const isCopied = copiedKeyId === order.id;
 
             // Image source
             const imgSrc = (
@@ -127,7 +165,7 @@ export default function DashboardDownloads() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="flex items-center gap-4 p-4 rounded-xl border border-border/60 bg-card/50 hover:border-primary/25 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border border-border/60 bg-card/50 hover:border-primary/25 transition-colors"
               >
                 {/* Thumbnail */}
                 <div className="shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-muted">
@@ -159,6 +197,31 @@ export default function DashboardDownloads() {
                     <span className="text-xs font-display font-bold text-primary">
                       ${(Number(order.amount) / 100).toFixed(2)}
                     </span>
+                  </div>
+
+                  {/* License Key */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <Key className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                    <Badge
+                      variant="outline"
+                      data-ocid={`downloads.license_key.${i + 1}`}
+                      className="font-mono text-xs px-2 py-0.5 border-border/50 text-muted-foreground bg-muted/30 tracking-widest select-all cursor-text"
+                    >
+                      {licenseKey}
+                    </Badge>
+                    <button
+                      type="button"
+                      aria-label="Copy license key"
+                      data-ocid={`downloads.copy_key_button.${i + 1}`}
+                      onClick={() => void handleCopyKey(order.id, licenseKey)}
+                      className="flex items-center justify-center h-5 w-5 rounded border border-border/40 bg-muted/30 hover:bg-primary/10 hover:border-primary/35 text-muted-foreground hover:text-primary transition-all duration-150"
+                    >
+                      {isCopied ? (
+                        <Check className="h-2.5 w-2.5 text-primary" />
+                      ) : (
+                        <Copy className="h-2.5 w-2.5" />
+                      )}
+                    </button>
                   </div>
                 </div>
 

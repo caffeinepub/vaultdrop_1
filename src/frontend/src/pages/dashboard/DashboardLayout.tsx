@@ -10,6 +10,7 @@ import {
   Download,
   ExternalLink,
   Heart,
+  Link2,
   LogOut,
   ShoppingBag,
   Star,
@@ -25,6 +26,7 @@ const navItems = [
   { path: "/dashboard/downloads", icon: Download, label: "Downloads" },
   { path: "/dashboard/subscription", icon: Star, label: "Subscription" },
   { path: "/dashboard/wishlist", icon: Heart, label: "Wishlist" },
+  { path: "/dashboard/affiliate", icon: Link2, label: "Affiliate" },
   { path: "/dashboard/profile", icon: User, label: "Profile" },
 ];
 
@@ -98,10 +100,15 @@ export default function DashboardLayout() {
           </p>
           {navItems.map((item) => {
             const isActive = currentPath === item.path;
+            const ocid =
+              item.path === "/dashboard/affiliate"
+                ? "dashboard.affiliate.tab"
+                : undefined;
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                data-ocid={ocid}
                 className={[
                   "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-body font-medium transition-all duration-150",
                   isActive

@@ -221,6 +221,23 @@
   background: oklch(0.6 0.22 25 / 0.1);
 }
 
+/* Admin nav hover — avoids inline-style flicker */
+.admin-nav-item:hover {
+  background: oklch(0.78 0.19 65 / 0.05);
+  color: oklch(0.78 0.01 50);
+}
+
+/* Section reveal — subtle fade gradient for featured content blocks */
+.section-reveal {
+  background: linear-gradient(
+    to bottom,
+    oklch(0.1 0.005 160) 0%,
+    oklch(0.13 0.008 160) 30%,
+    oklch(0.13 0.008 160) 70%,
+    oklch(0.1 0.005 160) 100%
+  );
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

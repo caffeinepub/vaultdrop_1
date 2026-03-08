@@ -1,15 +1,42 @@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSearch } from "@tanstack/react-router";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { type Listing, ListingStatus } from "../backend";
 import Footer from "../components/Footer";
 import ListingCard from "../components/ListingCard";
 import Navbar from "../components/Navbar";
 import { SAMPLE_LISTINGS } from "../data/sampleListings";
 import { useGetListings } from "../hooks/useQueries";
+
+const AFFILIATES_KEY = "vaultdrop_affiliates";
+
+function incrementAffiliateClick(code: string) {
+  try {
+    const raw = localStorage.getItem(AFFILIATES_KEY);
+    if (!raw) return;
+    const all: Record<
+      string,
+      { clickCount: number; code: string; updatedAt: number }
+    > = JSON.parse(raw);
+    const entry = Object.values(all).find((a) => a.code === code);
+    if (!entry) return;
+    const key = Object.keys(all).find((k) => all[k].code === code);
+    if (!key) return;
+    all[key] = {
+      ...all[key],
+      clickCount: (all[key].clickCount ?? 0) + 1,
+      updatedAt: Date.now(),
+    };
+    localStorage.setItem(AFFILIATES_KEY, JSON.stringify(all));
+  } catch {
+    // silent
+  }
+}
 
 const CATEGORIES = [
   "All",
@@ -26,6 +53,21 @@ export default function ListingsPage() {
   const { data: backendListings, isLoading } = useGetListings();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+
+  // Track affiliate ref on mount
+  const search_ = useSearch({ strict: false }) as Record<
+    string,
+    string | undefined
+  >;
+  const affiliateRef = search_?.ref;
+  useEffect(() => {
+    if (!affiliateRef) return;
+    sessionStorage.setItem("vaultdrop_affiliate_ref", affiliateRef);
+    incrementAffiliateClick(affiliateRef);
+    toast.info("Referral tracked. Thank you for supporting the creator!", {
+      duration: 3000,
+    });
+  }, [affiliateRef]);
 
   // Merge backend + sample data (backend takes priority)
   const allListings = useMemo(() => {
@@ -119,28 +161,55 @@ export default function ListingsPage() {
               {Array.from({ length: 8 }, (_, i) => `skel-${i}`).map((key) => (
                 <div
                   key={key}
-                  className="rounded-xl border border-border/40 overflow-hidden"
+                  className="rounded-xl border border-border/40 overflow-hidden bg-card"
+                  data-ocid="listings.loading_state"
                 >
-                  <Skeleton className="aspect-[3/2] w-full" />
-                  <div className="p-4 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="aspect-[3/2] w-full rounded-none" />
+                  <div className="p-4 space-y-2.5">
+                    <Skeleton className="h-[13px] w-3/4 rounded-md" />
+                    <Skeleton className="h-[11px] w-full rounded-md" />
+                    <Skeleton className="h-[11px] w-5/8 rounded-md" />
+                    <div className="pt-2 border-t border-border/20 flex items-center justify-between">
+                      <Skeleton className="h-7 w-16 rounded-lg" />
+                      <Skeleton className="h-7 w-7 rounded-full" />
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : visibleListings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <div className="p-4 rounded-full bg-muted/40 border border-border/40">
-                <SlidersHorizontal className="h-8 w-8 text-muted-foreground" />
+            <div
+              className="flex flex-col items-center justify-center py-28 gap-4"
+              data-ocid="listings.empty_state"
+            >
+              <div
+                className="p-5 rounded-2xl"
+                style={{
+                  background: "oklch(0.72 0.17 160 / 0.05)",
+                  border: "1px solid oklch(0.72 0.17 160 / 0.12)",
+                }}
+              >
+                <SlidersHorizontal className="h-8 w-8 text-primary/40" />
               </div>
-              <p className="font-display font-semibold text-lg text-foreground">
-                No listings found
-              </p>
-              <p className="text-sm text-muted-foreground font-body">
-                Try adjusting your search or filters
-              </p>
+              <div className="text-center">
+                <p className="font-display font-bold text-base text-foreground">
+                  No listings found
+                </p>
+                <p className="text-sm text-muted-foreground font-body mt-1 max-w-xs">
+                  Try clearing your search or selecting a different category
+                  filter
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setCategory("All");
+                }}
+                className="text-xs font-display font-semibold text-primary hover:text-primary/80 transition-colors"
+              >
+                Clear filters
+              </button>
             </div>
           ) : (
             <>

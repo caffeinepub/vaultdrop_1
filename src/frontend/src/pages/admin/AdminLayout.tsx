@@ -11,6 +11,7 @@ import {
   BarChart3,
   ChevronRight,
   Github,
+  Link2,
   LogOut,
   Megaphone,
   MessageSquareDot,
@@ -27,17 +28,36 @@ import {
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "../../hooks/useQueries";
 
-const navItems = [
-  { path: "/admin/analytics", icon: BarChart3, label: "Analytics" },
-  { path: "/admin/listings", icon: Package, label: "Listings" },
-  { path: "/admin/open-source", icon: Github, label: "Open Source" },
-  { path: "/admin/orders", icon: ShoppingBag, label: "Orders" },
-  { path: "/admin/users", icon: Users, label: "Users" },
-  { path: "/admin/subscriptions", icon: Star, label: "Subscriptions" },
-  { path: "/admin/reviews", icon: MessageSquareDot, label: "Reviews" },
-  { path: "/admin/discount-codes", icon: Tag, label: "Discount Codes" },
-  { path: "/admin/announcements", icon: Megaphone, label: "Announcements" },
-  { path: "/admin/settings", icon: Settings, label: "Settings" },
+const navSections = [
+  {
+    label: "Overview",
+    items: [{ path: "/admin/analytics", icon: BarChart3, label: "Analytics" }],
+  },
+  {
+    label: "Marketplace",
+    items: [
+      { path: "/admin/listings", icon: Package, label: "Listings" },
+      { path: "/admin/open-source", icon: Github, label: "Open Source" },
+      { path: "/admin/orders", icon: ShoppingBag, label: "Orders" },
+    ],
+  },
+  {
+    label: "Community",
+    items: [
+      { path: "/admin/users", icon: Users, label: "Users" },
+      { path: "/admin/subscriptions", icon: Star, label: "Subscriptions" },
+      { path: "/admin/reviews", icon: MessageSquareDot, label: "Reviews" },
+      { path: "/admin/affiliates", icon: Link2, label: "Affiliates" },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { path: "/admin/discount-codes", icon: Tag, label: "Discount Codes" },
+      { path: "/admin/announcements", icon: Megaphone, label: "Announcements" },
+      { path: "/admin/settings", icon: Settings, label: "Settings" },
+    ],
+  },
 ];
 
 export default function AdminLayout() {
@@ -153,68 +173,94 @@ export default function AdminLayout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-0.5">
-          <p
-            className="px-3 py-2 text-xs font-display font-semibold uppercase tracking-widest"
-            style={{ color: "oklch(0.45 0.015 50)" }}
-          >
-            Management
-          </p>
-          {navItems.map((item) => {
-            const isActive = currentPath === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body font-medium transition-all"
-                style={
-                  isActive
-                    ? {
-                        background: "oklch(0.78 0.19 65 / 0.12)",
-                        color: "oklch(0.78 0.19 65)",
-                        border: "1px solid oklch(0.78 0.19 65 / 0.25)",
-                      }
-                    : {
-                        color: "oklch(0.75 0.02 50)",
-                        border: "1px solid transparent",
-                      }
-                }
+        <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-5">
+          {navSections.map((section) => (
+            <div key={section.label}>
+              <p
+                className="px-3 pb-1.5 text-[10px] font-display font-black uppercase tracking-[0.12em]"
+                style={{ color: "oklch(0.38 0.012 50)" }}
               >
-                <item.icon
-                  className="h-4 w-4 shrink-0"
-                  style={{
-                    color: isActive
-                      ? "oklch(0.78 0.19 65)"
-                      : "oklch(0.45 0.015 50)",
-                  }}
-                />
-                {item.label}
-                {isActive && (
-                  <ChevronRight
-                    className="ml-auto h-3.5 w-3.5"
-                    style={{ color: "oklch(0.78 0.19 65)" }}
-                  />
-                )}
-              </Link>
-            );
-          })}
+                {section.label}
+              </p>
+              <div className="space-y-px">
+                {section.items.map((item) => {
+                  const isActive = currentPath === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className="relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-body font-medium transition-all duration-150"
+                      style={
+                        isActive
+                          ? {
+                              background: "oklch(0.78 0.19 65 / 0.1)",
+                              color: "oklch(0.9 0.02 65)",
+                            }
+                          : {
+                              color: "oklch(0.62 0.018 50)",
+                            }
+                      }
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.background =
+                            "oklch(0.78 0.19 65 / 0.05)";
+                          e.currentTarget.style.color = "oklch(0.78 0.01 50)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.color = "oklch(0.62 0.018 50)";
+                        }
+                      }}
+                    >
+                      {/* Active left accent bar */}
+                      {isActive && (
+                        <span
+                          className="absolute left-0 inset-y-1.5 w-[3px] rounded-r-full"
+                          style={{ background: "oklch(0.78 0.19 65)" }}
+                        />
+                      )}
+                      <item.icon
+                        className="h-[15px] w-[15px] shrink-0"
+                        style={{
+                          color: isActive
+                            ? "oklch(0.78 0.19 65)"
+                            : "oklch(0.42 0.013 50)",
+                        }}
+                      />
+                      <span className="flex-1">{item.label}</span>
+                      {isActive && (
+                        <ChevronRight
+                          className="h-3 w-3 shrink-0"
+                          style={{ color: "oklch(0.78 0.19 65 / 0.6)" }}
+                        />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
-          <Separator
-            className="my-3"
-            style={{ background: "oklch(0.22 0.015 50)" }}
-          />
+          <Separator style={{ background: "oklch(0.22 0.015 50)" }} />
 
           <Link
             to="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-body font-medium transition-all"
-            style={{
-              color: "oklch(0.65 0.02 50)",
-              border: "1px solid transparent",
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-body font-medium transition-all duration-150"
+            style={{ color: "oklch(0.5 0.015 50)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "oklch(0.65 0.15 200 / 0.06)";
+              e.currentTarget.style.color = "oklch(0.65 0.15 200)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "oklch(0.5 0.015 50)";
             }}
           >
             <Store
-              className="h-4 w-4 shrink-0"
-              style={{ color: "oklch(0.45 0.015 50)" }}
+              className="h-[15px] w-[15px] shrink-0"
+              style={{ color: "oklch(0.42 0.013 50)" }}
             />
             View Storefront
           </Link>

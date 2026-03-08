@@ -27,6 +27,7 @@ import {
 } from "../backend";
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
+import ShareToolbar from "../components/ShareToolbar";
 import { SAMPLE_LISTINGS } from "../data/sampleListings";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
@@ -592,6 +593,14 @@ export default function ListingDetailPage() {
                     <p className="mt-4 text-muted-foreground font-body leading-relaxed">
                       {listing.description}
                     </p>
+                  </div>
+
+                  {/* Share toolbar */}
+                  <div data-ocid="listing.share_toolbar">
+                    <ShareToolbar
+                      title={listing.title}
+                      url={window.location.href.split("?")[0]}
+                    />
                   </div>
 
                   {/* Price */}

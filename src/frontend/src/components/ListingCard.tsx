@@ -11,6 +11,7 @@ import {
   useGetCallerWishlist,
   useRemoveFromWishlist,
 } from "../hooks/useQueries";
+import ShareToolbar from "./ShareToolbar";
 
 type ListingCardData = Listing | SampleListing;
 
@@ -105,13 +106,14 @@ export default function ListingCard({ listing, index = 0 }: ListingCardProps) {
         delay: index * 0.06,
         ease: [0.22, 1, 0.36, 1],
       }}
+      whileHover={{ y: -4 }}
     >
       <Link
         to="/listings/$listingId"
         params={{ listingId: listing.id }}
         className="block group"
       >
-        <div className="relative overflow-hidden rounded-xl border border-border/50 bg-card transition-all duration-300 hover:border-primary/40 hover:shadow-glow hover:-translate-y-1 card-shimmer">
+        <div className="relative overflow-hidden rounded-xl border border-border/50 bg-card transition-all duration-300 hover:border-primary/35 hover:shadow-[0_8px_32px_oklch(0_0_0_/_0.5),0_0_20px_oklch(0.72_0.17_160_/_0.15)] card-shimmer">
           {/* Preview image */}
           <div className="relative aspect-[3/2] overflow-hidden bg-muted">
             {imageSrc ? (
@@ -186,23 +188,37 @@ export default function ListingCard({ listing, index = 0 }: ListingCardProps) {
           </div>
 
           {/* Content */}
-          <div className="p-4 pt-3.5">
-            <h3 className="font-display font-bold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-200 leading-snug">
+          <div className="p-4 pt-3.5 pb-4">
+            <h3 className="font-display font-bold text-[13px] text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-200 leading-snug tracking-tight">
               {listing.title}
             </h3>
-            <p className="mt-1 text-xs text-muted-foreground font-body line-clamp-2 leading-relaxed">
+            <p className="mt-1 text-[11px] text-muted-foreground font-body line-clamp-2 leading-relaxed">
               {listing.description}
             </p>
 
-            <div className="mt-3.5 flex items-center justify-between">
-              {/* Price chip */}
-              <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 font-display font-black text-sm text-primary">
+            <div className="mt-3.5 pt-3 border-t border-border/30 flex items-center justify-between">
+              {/* Price chip — slightly bolder */}
+              <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/25 font-display font-black text-sm text-primary tracking-tight">
                 {formatPrice(listing.price)}
               </span>
               {/* Arrow affordance */}
-              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-muted/60 border border-border/40 text-muted-foreground group-hover:bg-primary/15 group-hover:border-primary/30 group-hover:text-primary transition-all duration-200">
+              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-muted/50 border border-border/30 text-muted-foreground group-hover:bg-primary/15 group-hover:border-primary/35 group-hover:text-primary transition-all duration-200">
                 <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform duration-200" />
               </span>
+            </div>
+
+            {/* Share toolbar */}
+            <div
+              className="mt-2"
+              data-ocid={`listing_card.share_toolbar.${cardIndex}`}
+              onClick={(e) => e.preventDefault()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <ShareToolbar
+                title={listing.title}
+                url={`${window.location.protocol}//${window.location.host}/listings/${listing.id}`}
+                className="scale-[0.92] origin-left"
+              />
             </div>
           </div>
         </div>

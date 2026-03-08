@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Github,
   LayoutDashboard,
+  Link2,
   LogOut,
   Shield,
   Store,
@@ -85,6 +86,14 @@ export default function Navbar() {
           >
             <Github className="h-4 w-4" />
             Open Source
+          </Link>
+          <Link
+            to="/affiliate"
+            className="flex items-center gap-1.5 text-sm font-body font-medium text-muted-foreground hover:text-foreground transition-colors"
+            data-ocid="nav.affiliates.link"
+          >
+            <Link2 className="h-4 w-4" />
+            Affiliates
           </Link>
         </nav>
 

@@ -123,15 +123,26 @@ export default function LandingPage() {
                 Premium Digital Marketplace
               </Badge>
 
-              <h1 className="text-5xl md:text-6xl xl:text-7xl font-display font-black text-foreground leading-[0.92] tracking-tight">
-                The vault for
+              <h1 className="text-5xl md:text-6xl xl:text-7xl font-display font-black leading-[0.90] tracking-tight">
+                <span className="text-foreground">The vault for</span>
                 <br />
-                <span className="text-primary glow-text">premium</span>
+                <span
+                  className="glow-text"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(0.78 0.20 155) 0%, oklch(0.72 0.17 160) 50%, oklch(0.65 0.15 200) 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  premium
+                </span>
                 <br />
-                digital goods
+                <span className="text-foreground/90">digital goods</span>
               </h1>
 
-              <p className="mt-6 text-lg text-muted-foreground font-body leading-relaxed max-w-md">
+              <p className="mt-7 text-base md:text-lg text-muted-foreground font-body leading-relaxed max-w-[420px]">
                 Exclusive UI kits, typefaces, code, motion packs, and templates.
                 Subscribe for early access to drops before they go public.
               </p>
@@ -236,9 +247,11 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Features ──────────────────────────────────────────────── */}
-      <section className="py-20 border-t border-border/30">
-        <div className="container">
-          <div className="grid md:grid-cols-3 gap-5">
+      <section className="py-20 border-t border-border/30 relative overflow-hidden">
+        {/* Subtle gradient behind features */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-card/20 to-background pointer-events-none" />
+        <div className="container relative z-10">
+          <div className="grid md:grid-cols-3 gap-4">
             {features.map((f, i) => (
               <motion.div
                 key={f.title}
@@ -246,16 +259,17 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.4 }}
-                className="flex gap-4 p-6 rounded-xl border border-border/40 bg-card/50 hover:border-primary/25 transition-colors group"
+                whileHover={{ y: -2 }}
+                className="flex gap-4 p-5 rounded-xl border border-border/40 bg-card/60 hover:border-primary/30 hover:bg-card/80 transition-all duration-200 group"
               >
-                <div className="shrink-0 p-2.5 rounded-lg bg-primary/10 border border-primary/20 h-fit group-hover:bg-primary/15 transition-colors">
+                <div className="shrink-0 p-2.5 rounded-xl bg-primary/10 border border-primary/20 h-fit group-hover:bg-primary/15 group-hover:border-primary/30 transition-all duration-200">
                   <f.icon className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-sm text-foreground">
+                  <h3 className="font-display font-bold text-sm text-foreground tracking-tight">
                     {f.title}
                   </h3>
-                  <p className="mt-1 text-xs text-muted-foreground font-body leading-relaxed">
+                  <p className="mt-1.5 text-xs text-muted-foreground font-body leading-relaxed">
                     {f.desc}
                   </p>
                 </div>

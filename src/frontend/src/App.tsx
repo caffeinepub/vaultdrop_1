@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 import AuthGate from "./components/AuthGate";
 import AdminSignInPage from "./pages/AdminSignInPage";
+import AffiliatePage from "./pages/AffiliatePage";
 import LandingPage from "./pages/LandingPage";
 import ListingDetailPage from "./pages/ListingDetailPage";
 import ListingsPage from "./pages/ListingsPage";
@@ -16,6 +17,7 @@ import OpenSourcePage from "./pages/OpenSourcePage";
 import PaymentFailure from "./pages/PaymentFailure";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import SignInPage from "./pages/SignInPage";
+import AdminAffiliates from "./pages/admin/AdminAffiliates";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import AdminDiscountCodes from "./pages/admin/AdminDiscountCodes";
@@ -27,6 +29,7 @@ import AdminReviews from "./pages/admin/AdminReviews";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import AdminUsers from "./pages/admin/AdminUsers";
+import DashboardAffiliate from "./pages/dashboard/DashboardAffiliate";
 import DashboardDownloads from "./pages/dashboard/DashboardDownloads";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import DashboardOrders from "./pages/dashboard/DashboardOrders";
@@ -87,6 +90,12 @@ const openSourceRoute = createRoute({
   component: OpenSourcePage,
 });
 
+const affiliateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/affiliate",
+  component: AffiliatePage,
+});
+
 const adminSignInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/sign-in",
@@ -141,6 +150,12 @@ const dashboardWishlistRoute = createRoute({
   getParentRoute: () => dashboardLayoutRoute,
   path: "/wishlist",
   component: DashboardWishlist,
+});
+
+const dashboardAffiliateRoute = createRoute({
+  getParentRoute: () => dashboardLayoutRoute,
+  path: "/affiliate",
+  component: DashboardAffiliate,
 });
 
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
@@ -223,6 +238,12 @@ const adminOpenSourceRoute = createRoute({
   component: AdminOpenSource,
 });
 
+const adminAffiliatesRoute = createRoute({
+  getParentRoute: () => adminLayoutRoute,
+  path: "/affiliates",
+  component: AdminAffiliates,
+});
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -234,12 +255,14 @@ const routeTree = rootRoute.addChildren([
   signInRoute,
   adminSignInRoute,
   openSourceRoute,
+  affiliateRoute,
   dashboardLayoutRoute.addChildren([
     dashboardIndexRoute,
     dashboardOrdersRoute,
     dashboardDownloadsRoute,
     dashboardSubscriptionRoute,
     dashboardWishlistRoute,
+    dashboardAffiliateRoute,
     dashboardProfileRoute,
   ]),
   adminLayoutRoute.addChildren([
@@ -252,6 +275,7 @@ const routeTree = rootRoute.addChildren([
     adminSubscriptionsRoute,
     adminReviewsRoute,
     adminDiscountCodesRoute,
+    adminAffiliatesRoute,
     adminAnnouncementsRoute,
     adminSettingsRoute,
   ]),
