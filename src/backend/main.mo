@@ -7,17 +7,13 @@ import Time "mo:core/Time";
 import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import Array "mo:core/Array";
-
+import Runtime "mo:core/Runtime";
+import OutCall "http-outcalls/outcall";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import Runtime "mo:core/Runtime";
-
 import MixinStorage "blob-storage/Mixin";
-import Storage "blob-storage/Storage";
 import Stripe "stripe/stripe";
-import OutCall "http-outcalls/outcall";
-
-
+import Storage "blob-storage/Storage";
 
 actor {
   type Timestamp = Int;
@@ -27,6 +23,15 @@ actor {
   public type SubscriptionId = Text;
   public type ReviewId = Text;
   public type WishlistId = Text;
+  public type OpenSourceProjectId = Text;
+  public type TipId = Text;
+  public type Analytics = {
+    totalRevenue : Nat;
+    monthlyRevenue : Nat;
+    totalOrders : Nat;
+    activeSubscribers : Nat;
+    topListings : [(ListingId, Nat)];
+  };
 
   public type AppUserRole = {
     #admin;
@@ -38,20 +43,6 @@ actor {
     #draft;
     #upcoming;
     #published;
-  };
-
-  module ListingStatus {
-    public func compare(a : ListingStatus, b : ListingStatus) : Order.Order {
-      switch (a, b) {
-        case (#draft, #draft) { #equal };
-        case (#draft, _) { #less };
-        case (#upcoming, #draft) { #greater };
-        case (#upcoming, #upcoming) { #equal };
-        case (#upcoming, #published) { #less };
-        case (#published, #published) { #equal };
-        case (#published, _) { #greater };
-      };
-    };
   };
 
   public type UserProfile = {
@@ -82,20 +73,6 @@ actor {
     #refunded;
   };
 
-  module OrderStatus {
-    public func compare(a : OrderStatus, b : OrderStatus) : Order.Order {
-      switch (a, b) {
-        case (#pending, #pending) { #equal };
-        case (#pending, _) { #less };
-        case (#completed, #pending) { #greater };
-        case (#completed, #completed) { #equal };
-        case (#completed, #refunded) { #less };
-        case (#refunded, #refunded) { #equal };
-        case (#refunded, _) { #greater };
-      };
-    };
-  };
-
   public type Order = {
     id : OrderId;
     userId : UserId;
@@ -115,20 +92,6 @@ actor {
     #expired;
   };
 
-  module SubscriptionStatus {
-    public func compare(a : SubscriptionStatus, b : SubscriptionStatus) : Order.Order {
-      switch (a, b) {
-        case (#active, #active) { #equal };
-        case (#active, _) { #less };
-        case (#cancelled, #active) { #greater };
-        case (#cancelled, #cancelled) { #equal };
-        case (#cancelled, #expired) { #less };
-        case (#expired, #expired) { #equal };
-        case (#expired, _) { #greater };
-      };
-    };
-  };
-
   public type Subscription = {
     id : SubscriptionId;
     userId : UserId;
@@ -137,14 +100,6 @@ actor {
     currentPeriodEnd : Timestamp;
     createdAt : Timestamp;
     updatedAt : Timestamp;
-  };
-
-  public type Analytics = {
-    totalRevenue : Nat;
-    monthlyRevenue : Nat;
-    totalOrders : Nat;
-    activeSubscribers : Nat;
-    topListings : [(ListingId, Nat)];
   };
 
   public type ReviewStatus = {
@@ -211,6 +166,40 @@ actor {
     relatedEntityId : ?Text;
   };
 
+  public type OpenSourceProject = {
+    id : OpenSourceProjectId;
+    title : Text;
+    description : Text;
+    repoUrl : Text;
+    creatorName : Text;
+    suggestedTipCents : Nat;
+    previewImageKey : ?Text;
+    isActive : Bool;
+    createdAt : Timestamp;
+    updatedAt : Timestamp;
+  };
+
+  public type TipStatus = {
+    #pending;
+    #completed;
+  };
+
+  public type Tip = {
+    id : TipId;
+    projectId : OpenSourceProjectId;
+    userId : ?UserId;
+    amount : Nat;
+    paymentIntentId : ?Text;
+    status : TipStatus;
+    createdAt : Timestamp;
+    updatedAt : Timestamp;
+  };
+
+  public type TipStats = {
+    totalTips : Nat;
+    tipsByProject : [(OpenSourceProjectId, Nat)];
+  };
+
   var stripeConfig : ?Stripe.StripeConfiguration = null;
   let accessControlState = AccessControl.initState();
 
@@ -222,6 +211,8 @@ actor {
   let wishlists = Map.empty<UserId, Wishlist>();
   let discountCodes = Map.empty<Text, DiscountCode>();
   let notifications = Map.empty<Text, Notification>();
+  let openSourceProjects = Map.empty<OpenSourceProjectId, OpenSourceProject>();
+  let tips = Map.empty<TipId, Tip>();
 
   func getCurrentTime() : Timestamp {
     Time.now();
@@ -998,7 +989,7 @@ actor {
     };
   };
 
-  public query ({ caller }) func getPublicWishlist(userId : UserId) : async ?WishlistSnapshot {
+  public query func getPublicWishlist(userId : UserId) : async ?WishlistSnapshot {
     switch (wishlists.get(userId)) {
       case (null) { Runtime.trap("Wishlist not found") };
       case (?wishlist) {
@@ -1203,6 +1194,191 @@ actor {
       if (notification.userId == callerId and notification.isRead) {
         notifications.remove(notificationId);
       };
+    };
+  };
+
+  // ---------------------------------------------
+  //    VaultDrop Marketplace - Open Source Project & Tipping
+  // ---------------------------------------------
+
+  public shared ({ caller }) func createOpenSourceProject(
+    title : Text,
+    description : Text,
+    repoUrl : Text,
+    creatorName : Text,
+    suggestedTipCents : Nat,
+    previewImageKey : ?Text
+  ) : async OpenSourceProject {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can create open source projects");
+    };
+
+    let projectId = title.concat(getCurrentTime().toText());
+    let project : OpenSourceProject = {
+      id = projectId;
+      title;
+      description;
+      repoUrl;
+      creatorName;
+      suggestedTipCents;
+      previewImageKey;
+      isActive = true;
+      createdAt = getCurrentTime();
+      updatedAt = getCurrentTime();
+    };
+
+    openSourceProjects.add(projectId, project);
+    project;
+  };
+
+  public shared ({ caller }) func updateOpenSourceProject(
+    id : OpenSourceProjectId,
+    title : Text,
+    description : Text,
+    repoUrl : Text,
+    creatorName : Text,
+    suggestedTipCents : Nat,
+    previewImageKey : ?Text,
+    isActive : Bool
+  ) : async OpenSourceProject {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update open source projects");
+    };
+
+    switch (openSourceProjects.get(id)) {
+      case (null) { Runtime.trap("Open source project not found") };
+      case (?existingProject) {
+        let updatedProject = {
+          id;
+          title;
+          description;
+          repoUrl;
+          creatorName;
+          suggestedTipCents;
+          previewImageKey;
+          isActive;
+          createdAt = existingProject.createdAt;
+          updatedAt = getCurrentTime();
+        };
+        openSourceProjects.add(id, updatedProject);
+        updatedProject;
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteOpenSourceProject(id : OpenSourceProjectId) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete open source projects");
+    };
+    openSourceProjects.remove(id);
+  };
+
+  public query func getOpenSourceProjects() : async [OpenSourceProject] {
+    openSourceProjects.values().toArray().filter(
+      func(project) { project.isActive }
+    );
+  };
+
+  public query ({ caller }) func getAllOpenSourceProjects() : async [OpenSourceProject] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can fetch all open source projects");
+    };
+    openSourceProjects.values().toArray();
+  };
+
+  public shared ({ caller }) func recordTip(
+    projectId : OpenSourceProjectId,
+    amount : Nat,
+    paymentIntentId : ?Text
+  ) : async Tip {
+    switch (openSourceProjects.get(projectId)) {
+      case (null) { Runtime.trap("Open source project not found") };
+      case (?project) {
+        if (not project.isActive) {
+          Runtime.trap("Cannot tip inactive project");
+        };
+      };
+    };
+
+    let userRole = AccessControl.getUserRole(accessControlState, caller);
+    let userId : ?UserId = if (userRole == #guest) {
+      null
+    } else {
+      ?caller.toText()
+    };
+
+    let tipId = projectId.concat(getCurrentTime().toText());
+    let tip : Tip = {
+      id = tipId;
+      projectId;
+      userId;
+      amount;
+      paymentIntentId;
+      status = #pending;
+      createdAt = getCurrentTime();
+      updatedAt = getCurrentTime();
+    };
+
+    tips.add(tipId, tip);
+    tip;
+  };
+
+  public shared ({ caller }) func completeTip(tipId : TipId) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can complete tips");
+    };
+
+    switch (tips.get(tipId)) {
+      case (null) { Runtime.trap("Tip not found") };
+      case (?tip) {
+        let updatedTip = { tip with status = #completed; updatedAt = getCurrentTime() };
+        tips.add(tipId, updatedTip);
+      };
+    };
+  };
+
+  public query ({ caller }) func getProjectTips(projectId : OpenSourceProjectId) : async [Tip] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can fetch project tips");
+    };
+
+    tips.values().toArray().filter(
+      func(tip) { tip.projectId == projectId }
+    );
+  };
+
+  public query ({ caller }) func getTipStats() : async TipStats {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can fetch tip stats");
+    };
+
+    let totalTips = tips.values().toArray().foldLeft(
+      0,
+      func(acc, tip) {
+        if (tip.status == #completed) {
+          acc + tip.amount;
+        } else {
+          acc;
+        };
+      },
+    );
+
+    let tipsByProject = Map.empty<OpenSourceProjectId, Nat>();
+    tips.values().forEach(
+      func(tip) {
+        if (tip.status == #completed) {
+          let currentAmount = switch (tipsByProject.get(tip.projectId)) {
+            case (null) { 0 };
+            case (?amount) { amount };
+          };
+          tipsByProject.add(tip.projectId, currentAmount + tip.amount);
+        };
+      }
+    );
+
+    {
+      totalTips;
+      tipsByProject = tipsByProject.entries().toArray();
     };
   };
 };

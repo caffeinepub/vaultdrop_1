@@ -27,12 +27,24 @@ export default function PaymentFailure() {
           <p className="mt-3 text-muted-foreground font-body">
             Something went wrong with your payment. No charge has been made.
           </p>
-          <div className="mt-8">
-            <Button asChild className="font-display font-bold">
+          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              asChild
+              variant="outline"
+              className="font-display font-bold border-border/60 hover:border-primary/40"
+              data-ocid="payment.back.button"
+            >
               <Link to="/listings">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Listings
               </Link>
+            </Button>
+            <Button
+              asChild
+              className="bg-primary text-primary-foreground hover:bg-primary/90 font-display font-bold"
+              data-ocid="payment.retry.button"
+            >
+              <Link to="/listings">Try Again</Link>
             </Button>
           </div>
         </motion.div>

@@ -8,7 +8,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-border/40 bg-background/60 backdrop-blur-sm">
       <div className="container py-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           {/* Brand */}
           <Link to="/" className="flex items-center gap-2 group">
             <div className="p-1 rounded-md bg-primary/10 border border-primary/20">
@@ -18,6 +18,31 @@ export default function Footer() {
               Vault<span className="text-primary">Drop</span>
             </span>
           </Link>
+
+          {/* Links */}
+          <nav className="flex items-center gap-5 text-xs font-body text-muted-foreground">
+            <Link
+              to="/listings"
+              className="hover:text-foreground transition-colors"
+              data-ocid="footer.listings.link"
+            >
+              Browse Store
+            </Link>
+            <Link
+              to="/open-source"
+              className="hover:text-foreground transition-colors"
+              data-ocid="footer.opensource.link"
+            >
+              Open Source
+            </Link>
+            <Link
+              to="/dashboard/orders"
+              className="hover:text-foreground transition-colors"
+              data-ocid="footer.dashboard.link"
+            >
+              Dashboard
+            </Link>
+          </nav>
 
           {/* Attribution */}
           <p className="text-xs text-muted-foreground font-body flex items-center gap-1">

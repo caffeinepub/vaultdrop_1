@@ -1,7 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, FileDown, Inbox, Loader2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowRight, Download, FileDown, Inbox, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -90,6 +91,16 @@ export default function DashboardDownloads() {
           <p className="text-sm text-muted-foreground font-body text-center max-w-xs">
             Complete a purchase to see your downloads here
           </p>
+          <Link to="/listings">
+            <Button
+              variant="outline"
+              data-ocid="downloads.browse.button"
+              className="border-primary/30 text-primary hover:bg-primary/10 font-display font-semibold mt-2"
+            >
+              Browse Store
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
         </motion.div>
       ) : (
         <motion.div

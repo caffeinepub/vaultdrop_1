@@ -63,6 +63,19 @@ export type NotificationType = { 'subscriptionExpired' : null } |
   { 'earlyAccessListing' : null } |
   { 'adminAnnouncement' : null } |
   { 'purchaseCompleted' : null };
+export interface OpenSourceProject {
+  'id' : OpenSourceProjectId,
+  'title' : string,
+  'suggestedTipCents' : bigint,
+  'createdAt' : Timestamp,
+  'description' : string,
+  'creatorName' : string,
+  'isActive' : boolean,
+  'updatedAt' : Timestamp,
+  'repoUrl' : string,
+  'previewImageKey' : [] | [string],
+}
+export type OpenSourceProjectId = string;
 export interface Order {
   'id' : OrderId,
   'status' : OrderStatus,
@@ -122,6 +135,23 @@ export type SubscriptionStatus = { 'active' : null } |
   { 'cancelled' : null } |
   { 'expired' : null };
 export type Timestamp = bigint;
+export interface Tip {
+  'id' : TipId,
+  'status' : TipStatus,
+  'userId' : [] | [UserId],
+  'createdAt' : Timestamp,
+  'updatedAt' : Timestamp,
+  'projectId' : OpenSourceProjectId,
+  'amount' : bigint,
+  'paymentIntentId' : [] | [string],
+}
+export type TipId = string;
+export interface TipStats {
+  'totalTips' : bigint,
+  'tipsByProject' : Array<[OpenSourceProjectId, bigint]>,
+}
+export type TipStatus = { 'pending' : null } |
+  { 'completed' : null };
 export interface TransformationInput {
   'context' : Uint8Array,
   'response' : http_request_result,
@@ -188,6 +218,7 @@ export interface _SERVICE {
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'banUser' : ActorMethod<[UserId], undefined>,
   'clearReadNotifications' : ActorMethod<[], undefined>,
+  'completeTip' : ActorMethod<[TipId], undefined>,
   'createCheckoutSession' : ActorMethod<
     [Array<ShoppingItem>, string, string],
     string
@@ -200,6 +231,10 @@ export interface _SERVICE {
     [string, string, bigint, ListingStatus, [] | [string], [] | [string]],
     Listing
   >,
+  'createOpenSourceProject' : ActorMethod<
+    [string, string, string, string, bigint, [] | [string]],
+    OpenSourceProject
+  >,
   'createOrder' : ActorMethod<
     [ListingId, bigint, [] | [string], [] | [string]],
     Order
@@ -207,7 +242,9 @@ export interface _SERVICE {
   'createSubscription' : ActorMethod<[string, Timestamp], Subscription>,
   'deactivateDiscountCode' : ActorMethod<[string], undefined>,
   'deleteListing' : ActorMethod<[ListingId], undefined>,
+  'deleteOpenSourceProject' : ActorMethod<[OpenSourceProjectId], undefined>,
   'deleteReview' : ActorMethod<[ReviewId], undefined>,
+  'getAllOpenSourceProjects' : ActorMethod<[], Array<OpenSourceProject>>,
   'getAllOrders' : ActorMethod<[], Array<Order>>,
   'getAllReviews' : ActorMethod<[], Array<Review>>,
   'getAllSubscriptions' : ActorMethod<[], Array<Subscription>>,
@@ -221,8 +258,11 @@ export interface _SERVICE {
   'getDiscountCodes' : ActorMethod<[], Array<DiscountCode>>,
   'getDownloadFileUrl' : ActorMethod<[ListingId], [] | [string]>,
   'getListings' : ActorMethod<[], Array<Listing>>,
+  'getOpenSourceProjects' : ActorMethod<[], Array<OpenSourceProject>>,
+  'getProjectTips' : ActorMethod<[OpenSourceProjectId], Array<Tip>>,
   'getPublicWishlist' : ActorMethod<[UserId], [] | [WishlistSnapshot]>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
+  'getTipStats' : ActorMethod<[], TipStats>,
   'getUnreadNotificationCount' : ActorMethod<[], bigint>,
   'getUserOrders' : ActorMethod<[], Array<Order>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -233,6 +273,7 @@ export interface _SERVICE {
   'markNotificationRead' : ActorMethod<[string], undefined>,
   'markOrderAsRefunded' : ActorMethod<[OrderId], undefined>,
   'moderateReview' : ActorMethod<[ReviewId, ReviewStatus], undefined>,
+  'recordTip' : ActorMethod<[OpenSourceProjectId, bigint, [] | [string]], Tip>,
   'removeFromWishlist' : ActorMethod<[ListingId], undefined>,
   'saveCallerUserProfile' : ActorMethod<[string, string], UserProfile>,
   'sendAdminAnnouncement' : ActorMethod<[string, string], undefined>,
@@ -252,6 +293,19 @@ export interface _SERVICE {
       [] | [string],
     ],
     Listing
+  >,
+  'updateOpenSourceProject' : ActorMethod<
+    [
+      OpenSourceProjectId,
+      string,
+      string,
+      string,
+      string,
+      bigint,
+      [] | [string],
+      boolean,
+    ],
+    OpenSourceProject
   >,
   'updateOrderStatus' : ActorMethod<[OrderId, OrderStatus], undefined>,
   'updateSubscriptionStatus' : ActorMethod<

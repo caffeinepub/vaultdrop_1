@@ -26,6 +26,7 @@ export const UserRole = IDL.Variant({
   'guest' : IDL.Null,
 });
 export const UserId = IDL.Text;
+export const TipId = IDL.Text;
 export const ShoppingItem = IDL.Record({
   'productName' : IDL.Text,
   'currency' : IDL.Text,
@@ -60,6 +61,19 @@ export const Listing = IDL.Record({
   'price' : IDL.Nat,
   'previewImageKey' : IDL.Opt(IDL.Text),
   'fileKey' : IDL.Opt(IDL.Text),
+});
+export const OpenSourceProjectId = IDL.Text;
+export const OpenSourceProject = IDL.Record({
+  'id' : OpenSourceProjectId,
+  'title' : IDL.Text,
+  'suggestedTipCents' : IDL.Nat,
+  'createdAt' : Timestamp,
+  'description' : IDL.Text,
+  'creatorName' : IDL.Text,
+  'isActive' : IDL.Bool,
+  'updatedAt' : Timestamp,
+  'repoUrl' : IDL.Text,
+  'previewImageKey' : IDL.Opt(IDL.Text),
 });
 export const OrderId = IDL.Text;
 export const OrderStatus = IDL.Variant({
@@ -156,12 +170,30 @@ export const WishlistSnapshot = IDL.Record({
   'isPublic' : IDL.Bool,
   'listingIds' : IDL.Vec(ListingId),
 });
+export const TipStatus = IDL.Variant({
+  'pending' : IDL.Null,
+  'completed' : IDL.Null,
+});
+export const Tip = IDL.Record({
+  'id' : TipId,
+  'status' : TipStatus,
+  'userId' : IDL.Opt(UserId),
+  'createdAt' : Timestamp,
+  'updatedAt' : Timestamp,
+  'projectId' : OpenSourceProjectId,
+  'amount' : IDL.Nat,
+  'paymentIntentId' : IDL.Opt(IDL.Text),
+});
 export const StripeSessionStatus = IDL.Variant({
   'completed' : IDL.Record({
     'userPrincipal' : IDL.Opt(IDL.Text),
     'response' : IDL.Text,
   }),
   'failed' : IDL.Record({ 'error' : IDL.Text }),
+});
+export const TipStats = IDL.Record({
+  'totalTips' : IDL.Nat,
+  'tipsByProject' : IDL.Vec(IDL.Tuple(OpenSourceProjectId, IDL.Nat)),
 });
 export const StripeConfiguration = IDL.Record({
   'allowedCountries' : IDL.Vec(IDL.Text),
@@ -218,6 +250,7 @@ export const idlService = IDL.Service({
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'banUser' : IDL.Func([UserId], [], []),
   'clearReadNotifications' : IDL.Func([], [], []),
+  'completeTip' : IDL.Func([TipId], [], []),
   'createCheckoutSession' : IDL.Func(
       [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
       [IDL.Text],
@@ -240,6 +273,11 @@ export const idlService = IDL.Service({
       [Listing],
       [],
     ),
+  'createOpenSourceProject' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Opt(IDL.Text)],
+      [OpenSourceProject],
+      [],
+    ),
   'createOrder' : IDL.Func(
       [ListingId, IDL.Nat, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
       [Order],
@@ -248,7 +286,13 @@ export const idlService = IDL.Service({
   'createSubscription' : IDL.Func([IDL.Text, Timestamp], [Subscription], []),
   'deactivateDiscountCode' : IDL.Func([IDL.Text], [], []),
   'deleteListing' : IDL.Func([ListingId], [], []),
+  'deleteOpenSourceProject' : IDL.Func([OpenSourceProjectId], [], []),
   'deleteReview' : IDL.Func([ReviewId], [], []),
+  'getAllOpenSourceProjects' : IDL.Func(
+      [],
+      [IDL.Vec(OpenSourceProject)],
+      ['query'],
+    ),
   'getAllOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
   'getAllReviews' : IDL.Func([], [IDL.Vec(Review)], ['query']),
   'getAllSubscriptions' : IDL.Func([], [IDL.Vec(Subscription)], ['query']),
@@ -262,12 +306,19 @@ export const idlService = IDL.Service({
   'getDiscountCodes' : IDL.Func([], [IDL.Vec(DiscountCode)], ['query']),
   'getDownloadFileUrl' : IDL.Func([ListingId], [IDL.Opt(IDL.Text)], ['query']),
   'getListings' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
+  'getOpenSourceProjects' : IDL.Func(
+      [],
+      [IDL.Vec(OpenSourceProject)],
+      ['query'],
+    ),
+  'getProjectTips' : IDL.Func([OpenSourceProjectId], [IDL.Vec(Tip)], ['query']),
   'getPublicWishlist' : IDL.Func(
       [UserId],
       [IDL.Opt(WishlistSnapshot)],
       ['query'],
     ),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+  'getTipStats' : IDL.Func([], [TipStats], ['query']),
   'getUnreadNotificationCount' : IDL.Func([], [IDL.Nat], ['query']),
   'getUserOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
   'getUserProfile' : IDL.Func(
@@ -282,6 +333,11 @@ export const idlService = IDL.Service({
   'markNotificationRead' : IDL.Func([IDL.Text], [], []),
   'markOrderAsRefunded' : IDL.Func([OrderId], [], []),
   'moderateReview' : IDL.Func([ReviewId, ReviewStatus], [], []),
+  'recordTip' : IDL.Func(
+      [OpenSourceProjectId, IDL.Nat, IDL.Opt(IDL.Text)],
+      [Tip],
+      [],
+    ),
   'removeFromWishlist' : IDL.Func([ListingId], [], []),
   'saveCallerUserProfile' : IDL.Func([IDL.Text, IDL.Text], [UserProfile], []),
   'sendAdminAnnouncement' : IDL.Func([IDL.Text, IDL.Text], [], []),
@@ -305,6 +361,20 @@ export const idlService = IDL.Service({
         IDL.Opt(IDL.Text),
       ],
       [Listing],
+      [],
+    ),
+  'updateOpenSourceProject' : IDL.Func(
+      [
+        OpenSourceProjectId,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        IDL.Opt(IDL.Text),
+        IDL.Bool,
+      ],
+      [OpenSourceProject],
       [],
     ),
   'updateOrderStatus' : IDL.Func([OrderId, OrderStatus], [], []),
@@ -341,6 +411,7 @@ export const idlFactory = ({ IDL }) => {
     'guest' : IDL.Null,
   });
   const UserId = IDL.Text;
+  const TipId = IDL.Text;
   const ShoppingItem = IDL.Record({
     'productName' : IDL.Text,
     'currency' : IDL.Text,
@@ -375,6 +446,19 @@ export const idlFactory = ({ IDL }) => {
     'price' : IDL.Nat,
     'previewImageKey' : IDL.Opt(IDL.Text),
     'fileKey' : IDL.Opt(IDL.Text),
+  });
+  const OpenSourceProjectId = IDL.Text;
+  const OpenSourceProject = IDL.Record({
+    'id' : OpenSourceProjectId,
+    'title' : IDL.Text,
+    'suggestedTipCents' : IDL.Nat,
+    'createdAt' : Timestamp,
+    'description' : IDL.Text,
+    'creatorName' : IDL.Text,
+    'isActive' : IDL.Bool,
+    'updatedAt' : Timestamp,
+    'repoUrl' : IDL.Text,
+    'previewImageKey' : IDL.Opt(IDL.Text),
   });
   const OrderId = IDL.Text;
   const OrderStatus = IDL.Variant({
@@ -471,12 +555,30 @@ export const idlFactory = ({ IDL }) => {
     'isPublic' : IDL.Bool,
     'listingIds' : IDL.Vec(ListingId),
   });
+  const TipStatus = IDL.Variant({
+    'pending' : IDL.Null,
+    'completed' : IDL.Null,
+  });
+  const Tip = IDL.Record({
+    'id' : TipId,
+    'status' : TipStatus,
+    'userId' : IDL.Opt(UserId),
+    'createdAt' : Timestamp,
+    'updatedAt' : Timestamp,
+    'projectId' : OpenSourceProjectId,
+    'amount' : IDL.Nat,
+    'paymentIntentId' : IDL.Opt(IDL.Text),
+  });
   const StripeSessionStatus = IDL.Variant({
     'completed' : IDL.Record({
       'userPrincipal' : IDL.Opt(IDL.Text),
       'response' : IDL.Text,
     }),
     'failed' : IDL.Record({ 'error' : IDL.Text }),
+  });
+  const TipStats = IDL.Record({
+    'totalTips' : IDL.Nat,
+    'tipsByProject' : IDL.Vec(IDL.Tuple(OpenSourceProjectId, IDL.Nat)),
   });
   const StripeConfiguration = IDL.Record({
     'allowedCountries' : IDL.Vec(IDL.Text),
@@ -530,6 +632,7 @@ export const idlFactory = ({ IDL }) => {
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'banUser' : IDL.Func([UserId], [], []),
     'clearReadNotifications' : IDL.Func([], [], []),
+    'completeTip' : IDL.Func([TipId], [], []),
     'createCheckoutSession' : IDL.Func(
         [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
         [IDL.Text],
@@ -552,6 +655,11 @@ export const idlFactory = ({ IDL }) => {
         [Listing],
         [],
       ),
+    'createOpenSourceProject' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Opt(IDL.Text)],
+        [OpenSourceProject],
+        [],
+      ),
     'createOrder' : IDL.Func(
         [ListingId, IDL.Nat, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
         [Order],
@@ -560,7 +668,13 @@ export const idlFactory = ({ IDL }) => {
     'createSubscription' : IDL.Func([IDL.Text, Timestamp], [Subscription], []),
     'deactivateDiscountCode' : IDL.Func([IDL.Text], [], []),
     'deleteListing' : IDL.Func([ListingId], [], []),
+    'deleteOpenSourceProject' : IDL.Func([OpenSourceProjectId], [], []),
     'deleteReview' : IDL.Func([ReviewId], [], []),
+    'getAllOpenSourceProjects' : IDL.Func(
+        [],
+        [IDL.Vec(OpenSourceProject)],
+        ['query'],
+      ),
     'getAllOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
     'getAllReviews' : IDL.Func([], [IDL.Vec(Review)], ['query']),
     'getAllSubscriptions' : IDL.Func([], [IDL.Vec(Subscription)], ['query']),
@@ -578,12 +692,23 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getListings' : IDL.Func([], [IDL.Vec(Listing)], ['query']),
+    'getOpenSourceProjects' : IDL.Func(
+        [],
+        [IDL.Vec(OpenSourceProject)],
+        ['query'],
+      ),
+    'getProjectTips' : IDL.Func(
+        [OpenSourceProjectId],
+        [IDL.Vec(Tip)],
+        ['query'],
+      ),
     'getPublicWishlist' : IDL.Func(
         [UserId],
         [IDL.Opt(WishlistSnapshot)],
         ['query'],
       ),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+    'getTipStats' : IDL.Func([], [TipStats], ['query']),
     'getUnreadNotificationCount' : IDL.Func([], [IDL.Nat], ['query']),
     'getUserOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
     'getUserProfile' : IDL.Func(
@@ -598,6 +723,11 @@ export const idlFactory = ({ IDL }) => {
     'markNotificationRead' : IDL.Func([IDL.Text], [], []),
     'markOrderAsRefunded' : IDL.Func([OrderId], [], []),
     'moderateReview' : IDL.Func([ReviewId, ReviewStatus], [], []),
+    'recordTip' : IDL.Func(
+        [OpenSourceProjectId, IDL.Nat, IDL.Opt(IDL.Text)],
+        [Tip],
+        [],
+      ),
     'removeFromWishlist' : IDL.Func([ListingId], [], []),
     'saveCallerUserProfile' : IDL.Func([IDL.Text, IDL.Text], [UserProfile], []),
     'sendAdminAnnouncement' : IDL.Func([IDL.Text, IDL.Text], [], []),
@@ -621,6 +751,20 @@ export const idlFactory = ({ IDL }) => {
           IDL.Opt(IDL.Text),
         ],
         [Listing],
+        [],
+      ),
+    'updateOpenSourceProject' : IDL.Func(
+        [
+          OpenSourceProjectId,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          IDL.Opt(IDL.Text),
+          IDL.Bool,
+        ],
+        [OpenSourceProject],
         [],
       ),
     'updateOrderStatus' : IDL.Func([OrderId, OrderStatus], [], []),

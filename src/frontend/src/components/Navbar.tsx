@@ -22,6 +22,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ChevronDown,
+  Github,
   LayoutDashboard,
   LogOut,
   Shield,
@@ -76,6 +77,14 @@ export default function Navbar() {
           >
             <Store className="h-4 w-4" />
             Browse
+          </Link>
+          <Link
+            to="/open-source"
+            className="flex items-center gap-1.5 text-sm font-body font-medium text-muted-foreground hover:text-foreground transition-colors"
+            data-ocid="nav.opensource.link"
+          >
+            <Github className="h-4 w-4" />
+            Open Source
           </Link>
         </nav>
 

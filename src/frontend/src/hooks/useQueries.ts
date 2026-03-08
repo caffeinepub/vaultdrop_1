@@ -6,6 +6,8 @@ import type {
   ListingId,
   ListingStatus,
   Notification,
+  OpenSourceProject,
+  OpenSourceProjectId,
   Order,
   OrderStatus,
   Review,
@@ -15,6 +17,7 @@ import type {
   StripeConfiguration,
   Subscription,
   SubscriptionStatus,
+  Tip,
   UserProfile,
   WishlistSnapshot,
 } from "../backend";
@@ -728,5 +731,154 @@ export function useSendAdminAnnouncement() {
       if (!actor) throw new Error("Actor not available");
       return actor.sendAdminAnnouncement(params.title, params.message);
     },
+  });
+}
+
+// ─── Open Source Tip Jar ──────────────────────────────────────────────────────
+
+export function useGetOpenSourceProjects() {
+  const { actor, isFetching } = useActor();
+  return useQuery<OpenSourceProject[]>({
+    queryKey: ["openSourceProjects"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getOpenSourceProjects();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetAllOpenSourceProjects() {
+  const { actor, isFetching } = useActor();
+  return useQuery<OpenSourceProject[]>({
+    queryKey: ["allOpenSourceProjects"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllOpenSourceProjects();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateOpenSourceProject() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      title: string;
+      description: string;
+      repoUrl: string;
+      creatorName: string;
+      suggestedTipCents: bigint;
+      previewImageKey: string | null;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.createOpenSourceProject(
+        params.title,
+        params.description,
+        params.repoUrl,
+        params.creatorName,
+        params.suggestedTipCents,
+        params.previewImageKey,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["openSourceProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["allOpenSourceProjects"] });
+    },
+  });
+}
+
+export function useUpdateOpenSourceProject() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      id: OpenSourceProjectId;
+      title: string;
+      description: string;
+      repoUrl: string;
+      creatorName: string;
+      suggestedTipCents: bigint;
+      previewImageKey: string | null;
+      isActive: boolean;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.updateOpenSourceProject(
+        params.id,
+        params.title,
+        params.description,
+        params.repoUrl,
+        params.creatorName,
+        params.suggestedTipCents,
+        params.previewImageKey,
+        params.isActive,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["openSourceProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["allOpenSourceProjects"] });
+    },
+  });
+}
+
+export function useDeleteOpenSourceProject() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: OpenSourceProjectId) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.deleteOpenSourceProject(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["openSourceProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["allOpenSourceProjects"] });
+    },
+  });
+}
+
+export function useRecordTip() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      projectId: OpenSourceProjectId;
+      amount: bigint;
+      paymentIntentId: string | null;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.recordTip(
+        params.projectId,
+        params.amount,
+        params.paymentIntentId,
+      );
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["projectTips", variables.projectId],
+      });
+    },
+  });
+}
+
+export function useCompleteTip() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (tipId: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.completeTip(tipId);
+    },
+  });
+}
+
+export function useGetProjectTips(projectId: OpenSourceProjectId) {
+  const { actor, isFetching } = useActor();
+  return useQuery<Tip[]>({
+    queryKey: ["projectTips", projectId],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getProjectTips(projectId);
+    },
+    enabled: !!actor && !isFetching && !!projectId,
   });
 }

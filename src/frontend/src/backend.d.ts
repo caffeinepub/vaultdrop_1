@@ -13,6 +13,10 @@ export interface TransformationOutput {
     body: Uint8Array;
     headers: Array<http_header>;
 }
+export interface TipStats {
+    totalTips: bigint;
+    tipsByProject: Array<[OpenSourceProjectId, bigint]>;
+}
 export interface DiscountCode {
     id: string;
     expiresAt?: Timestamp;
@@ -23,6 +27,16 @@ export interface DiscountCode {
     isActive: boolean;
     usageLimit?: bigint;
     updatedAt: Timestamp;
+}
+export interface Tip {
+    id: TipId;
+    status: TipStatus;
+    userId?: UserId;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+    projectId: OpenSourceProjectId;
+    amount: bigint;
+    paymentIntentId?: string;
 }
 export interface Subscription {
     id: SubscriptionId;
@@ -46,6 +60,8 @@ export interface TransformationInput {
     context: Uint8Array;
     response: http_request_result;
 }
+export type TipId = string;
+export type OpenSourceProjectId = string;
 export type StripeSessionStatus = {
     __kind__: "completed";
     completed: {
@@ -72,6 +88,18 @@ export interface Review {
     comment: string;
     updatedAt: Timestamp;
     rating: bigint;
+}
+export interface OpenSourceProject {
+    id: OpenSourceProjectId;
+    title: string;
+    suggestedTipCents: bigint;
+    createdAt: Timestamp;
+    description: string;
+    creatorName: string;
+    isActive: boolean;
+    updatedAt: Timestamp;
+    repoUrl: string;
+    previewImageKey?: string;
 }
 export interface Listing {
     id: ListingId;
@@ -173,6 +201,10 @@ export enum SubscriptionStatus {
     cancelled = "cancelled",
     expired = "expired"
 }
+export enum TipStatus {
+    pending = "pending",
+    completed = "completed"
+}
 export enum UserRole {
     admin = "admin",
     user = "user",
@@ -183,14 +215,18 @@ export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     banUser(userId: UserId): Promise<void>;
     clearReadNotifications(): Promise<void>;
+    completeTip(tipId: TipId): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     createDiscountCode(code: string, discountPercent: bigint, expiresAt: Timestamp | null, usageLimit: bigint | null): Promise<DiscountCode>;
     createListing(title: string, description: string, price: bigint, status: ListingStatus, previewImageKey: string | null, fileKey: string | null): Promise<Listing>;
+    createOpenSourceProject(title: string, description: string, repoUrl: string, creatorName: string, suggestedTipCents: bigint, previewImageKey: string | null): Promise<OpenSourceProject>;
     createOrder(listingId: ListingId, amount: bigint, paymentIntentId: string | null, discountCode: string | null): Promise<Order>;
     createSubscription(stripeSubscriptionId: string, currentPeriodEnd: Timestamp): Promise<Subscription>;
     deactivateDiscountCode(codeId: string): Promise<void>;
     deleteListing(listingId: ListingId): Promise<void>;
+    deleteOpenSourceProject(id: OpenSourceProjectId): Promise<void>;
     deleteReview(reviewId: ReviewId): Promise<void>;
+    getAllOpenSourceProjects(): Promise<Array<OpenSourceProject>>;
     getAllOrders(): Promise<Array<Order>>;
     getAllReviews(): Promise<Array<Review>>;
     getAllSubscriptions(): Promise<Array<Subscription>>;
@@ -204,8 +240,11 @@ export interface backendInterface {
     getDiscountCodes(): Promise<Array<DiscountCode>>;
     getDownloadFileUrl(listingId: ListingId): Promise<string | null>;
     getListings(): Promise<Array<Listing>>;
+    getOpenSourceProjects(): Promise<Array<OpenSourceProject>>;
+    getProjectTips(projectId: OpenSourceProjectId): Promise<Array<Tip>>;
     getPublicWishlist(userId: UserId): Promise<WishlistSnapshot | null>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
+    getTipStats(): Promise<TipStats>;
     getUnreadNotificationCount(): Promise<bigint>;
     getUserOrders(): Promise<Array<Order>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
@@ -216,6 +255,7 @@ export interface backendInterface {
     markNotificationRead(notificationId: string): Promise<void>;
     markOrderAsRefunded(orderId: OrderId): Promise<void>;
     moderateReview(reviewId: ReviewId, status: ReviewStatus): Promise<void>;
+    recordTip(projectId: OpenSourceProjectId, amount: bigint, paymentIntentId: string | null): Promise<Tip>;
     removeFromWishlist(listingId: ListingId): Promise<void>;
     saveCallerUserProfile(username: string, email: string): Promise<UserProfile>;
     sendAdminAnnouncement(title: string, message: string): Promise<void>;
@@ -225,6 +265,7 @@ export interface backendInterface {
     transform(input: TransformationInput): Promise<TransformationOutput>;
     unbanUser(userId: UserId): Promise<void>;
     updateListing(listingId: ListingId, title: string, description: string, price: bigint, status: ListingStatus, previewImageKey: string | null, fileKey: string | null): Promise<Listing>;
+    updateOpenSourceProject(id: OpenSourceProjectId, title: string, description: string, repoUrl: string, creatorName: string, suggestedTipCents: bigint, previewImageKey: string | null, isActive: boolean): Promise<OpenSourceProject>;
     updateOrderStatus(orderId: OrderId, status: OrderStatus): Promise<void>;
     updateSubscriptionStatus(subscriptionId: SubscriptionId, status: SubscriptionStatus): Promise<void>;
     validateDiscountCode(code: string): Promise<{

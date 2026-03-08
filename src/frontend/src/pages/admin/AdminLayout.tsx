@@ -10,6 +10,7 @@ import {
 import {
   BarChart3,
   ChevronRight,
+  Github,
   LogOut,
   Megaphone,
   MessageSquareDot,
@@ -29,6 +30,7 @@ import { useGetCallerUserProfile } from "../../hooks/useQueries";
 const navItems = [
   { path: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { path: "/admin/listings", icon: Package, label: "Listings" },
+  { path: "/admin/open-source", icon: Github, label: "Open Source" },
   { path: "/admin/orders", icon: ShoppingBag, label: "Orders" },
   { path: "/admin/users", icon: Users, label: "Users" },
   { path: "/admin/subscriptions", icon: Star, label: "Subscriptions" },

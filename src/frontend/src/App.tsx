@@ -12,6 +12,7 @@ import AdminSignInPage from "./pages/AdminSignInPage";
 import LandingPage from "./pages/LandingPage";
 import ListingDetailPage from "./pages/ListingDetailPage";
 import ListingsPage from "./pages/ListingsPage";
+import OpenSourcePage from "./pages/OpenSourcePage";
 import PaymentFailure from "./pages/PaymentFailure";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import SignInPage from "./pages/SignInPage";
@@ -20,6 +21,7 @@ import AdminAnnouncements from "./pages/admin/AdminAnnouncements";
 import AdminDiscountCodes from "./pages/admin/AdminDiscountCodes";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminListings from "./pages/admin/AdminListings";
+import AdminOpenSource from "./pages/admin/AdminOpenSource";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminReviews from "./pages/admin/AdminReviews";
 import AdminSettings from "./pages/admin/AdminSettings";
@@ -77,6 +79,12 @@ const signInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/sign-in",
   component: SignInPage,
+});
+
+const openSourceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/open-source",
+  component: OpenSourcePage,
 });
 
 const adminSignInRoute = createRoute({
@@ -209,6 +217,12 @@ const adminAnnouncementsRoute = createRoute({
   component: AdminAnnouncements,
 });
 
+const adminOpenSourceRoute = createRoute({
+  getParentRoute: () => adminLayoutRoute,
+  path: "/open-source",
+  component: AdminOpenSource,
+});
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -219,6 +233,7 @@ const routeTree = rootRoute.addChildren([
   paymentFailureRoute,
   signInRoute,
   adminSignInRoute,
+  openSourceRoute,
   dashboardLayoutRoute.addChildren([
     dashboardIndexRoute,
     dashboardOrdersRoute,
@@ -231,6 +246,7 @@ const routeTree = rootRoute.addChildren([
     adminIndexRoute,
     adminAnalyticsRoute,
     adminListingsRoute,
+    adminOpenSourceRoute,
     adminOrdersRoute,
     adminUsersRoute,
     adminSubscriptionsRoute,
